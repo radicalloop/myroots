@@ -95,7 +95,7 @@ export function TreePageToolbar({
   const actionIconClass = "h-4 w-4 shrink-0 text-text-primary";
 
   return (
-    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-8 sm:py-5">
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 md:gap-4 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-8 sm:py-5">
       <div className="pointer-events-auto rounded-2xl border border-white/70 bg-white/90 px-3.5 py-3 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:min-w-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none sm:backdrop-blur-0">
         {!publicMode ? (
           <>
@@ -137,7 +137,7 @@ export function TreePageToolbar({
       </div>
 
       {showActionsBar && (
-        <div className="pointer-events-auto flex w-full flex-col gap-2 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
+        <div className="pointer-events-auto flex w-full flex-col gap-2 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0 max-sm:mt-3.5 max-sm:w-[calc(100%-24px)] max-sm:mx-auto">
           {showSearch && root ? (
             <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-stretch">
               <PersonSearch

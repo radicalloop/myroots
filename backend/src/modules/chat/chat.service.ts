@@ -131,6 +131,23 @@ export class ChatService {
     const cacheKey = this.pendingKey(treeId, userId);
     const hasIncomingImage = Boolean(dto.image);
 
+    if (
+      persons.length === 0 &&
+      (hasIncomingImage ||
+        this.pendingImages.has(cacheKey) ||
+        this.isProfileImageRequest(dto.message))
+    ) {
+      this.pendingImages.delete(cacheKey);
+      return {
+        reply:
+          "There are no people in this family tree right now, so I can't set a profile photo. Please add the first person, then upload the photo again.",
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
     // ── Handle pending bulk-update confirmation / rejection ──────────────
     let pendingBulk = this.pendingBulkUpdates.get(cacheKey);
 
@@ -244,6 +261,18 @@ export class ChatService {
       splitProfileImageActions(regularActions);
 
     let results: ChatActionResult[] = [];
+
+    if (persons.length === 0 && profileImageRequests.length > 0) {
+      this.pendingImages.delete(cacheKey);
+      return {
+        reply:
+          "There are no people in this family tree right now, so I can't set a profile photo. Please add the first person, then upload the photo again.",
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
 
     // ── Handle first-time bulk update (count + store pending) ────────────
     if (bulkActions.length > 0) {
@@ -398,6 +427,12 @@ export class ChatService {
     }
 
     return false;
+  }
+
+  private isProfileImageRequest(message: string): boolean {
+    return /\b(profile\s*(photo|image|picture)|photo|image|picture)\b/i.test(
+      message,
+    );
   }
 
   // ─── Bulk update ───────────────────────────────────────────────────────

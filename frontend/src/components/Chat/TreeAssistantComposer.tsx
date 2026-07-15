@@ -1,59 +1,14 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
 import {
-  ImagePlus,
   Mic,
   MicOff,
-  Pencil,
-  Search,
+  Plus,
   SendHorizontal,
-  Sparkles,
-  UserPlus,
   X,
 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
 import { focusChatInput } from "@/utils/focusChatInput";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
-
-const QUICK_PROMPTS = [
-  {
-    label: "Tell me about my family history",
-    message: "Tell me about my family history",
-  },
-  {
-    label: "Who are my oldest known ancestors?",
-    message: "Who are my oldest known ancestors?",
-  },
-  {
-    label: "Help me find missing family details",
-    message: "Help me find missing family details",
-  },
-  {
-    label: "Summarize my family tree",
-    message: "Summarize my family tree",
-  },
-] as const;
-
-const ACTION_TEMPLATES = [
-  {
-    label: "Add person",
-    icon: UserPlus,
-    message:
-      "Add a person:\nFirst name: \nLast name: \nGender: \nWhere to add: under [person name] / as root\nRelationship: child / parent / spouse\nBirth date/place (optional): ",
-  },
-  {
-    label: "Edit details",
-    icon: Pencil,
-    message:
-      "Edit details:\nPerson to edit: \nWhat detail should change: \nNew value: ",
-  },
-  {
-    label: "Find someone",
-    icon: Search,
-    message:
-      "Find someone:\nName or clue: \nWhat should I look for: ",
-  },
-] as const;
 
 const TEXTAREA_MAX_HEIGHT = 112;
 
@@ -135,15 +90,6 @@ export function TreeAssistantComposer({
     wasSendingRef.current = isSending;
   }, [isSending]);
 
-  const fillPrompt = (message: string) => {
-    onInputChange(message);
-    requestAnimationFrame(() => {
-      focusChatInput(inputRef);
-      const nextCursor = message.length;
-      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
-    });
-  };
-
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
     onSubmit(event);
     requestAnimationFrame(() => {
@@ -152,45 +98,7 @@ export function TreeAssistantComposer({
   };
 
   return (
-    <div className="min-w-0 space-y-3 border-t border-border-subtle px-4 py-3">
-      <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-3 py-3">
-        <div className="mb-2 flex items-center gap-2">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-white">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          </span>
-          <p className="text-sm font-semibold text-text-primary">
-            Ask MyRoots AI
-          </p>
-        </div>
-        <div className="mb-2 flex flex-wrap gap-2">
-          {ACTION_TEMPLATES.map(({ label, icon: Icon, message }) => (
-            <button
-              key={label}
-              type="button"
-              disabled={isSending}
-              onClick={() => fillPrompt(message)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border-soft bg-white px-3 py-1.5 text-xs font-bold text-text-primary transition hover:border-brand-300 hover:bg-white disabled:opacity-50"
-            >
-              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {QUICK_PROMPTS.map(({ label, message }) => (
-            <button
-              key={label}
-              type="button"
-              disabled={isSending}
-              onClick={() => fillPrompt(message)}
-              className="inline-flex items-center rounded-full border border-brand-100 bg-white px-3 py-1.5 text-left text-xs font-semibold text-brand-800 transition hover:border-brand-300 hover:bg-brand-100 disabled:opacity-50"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <div className="min-w-0 space-y-3 border-t border-border-subtle bg-white px-4 pb-4 pt-3">
       {attachedImage && (
         <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-warm-50 px-2.5 py-2">
           <img
@@ -231,73 +139,73 @@ export function TreeAssistantComposer({
           onClick={() => fileInputRef.current?.click()}
           disabled={isSending}
           aria-label="Attach an image"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-soft bg-white text-text-muted transition hover:border-warm-300 hover:text-text-secondary disabled:opacity-50"
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-border-soft bg-white text-text-muted shadow-sm transition hover:border-warm-300 hover:text-text-secondary disabled:opacity-50"
         >
-          <ImagePlus className="h-4 w-4" />
+          <Plus className="h-6 w-6" />
         </button>
-        {speechSupported && (
-          <button
-            type="button"
-            onClick={listening ? stopSpeech : startSpeech}
-            disabled={isSending}
-            aria-label={listening ? "Stop recording" : "Start voice input"}
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-soft bg-white transition disabled:opacity-50 ${
-              listening
-                ? "border-red-300 text-red-500 hover:border-red-400 hover:text-red-600"
-                : "text-text-muted hover:border-warm-300 hover:text-text-secondary"
-            }`}
-          >
-            {listening ? (
-              <>
-                <MicOff className="pointer-events-none h-4 w-4" />
-                <span className="pointer-events-none absolute -right-0.5 -top-0.5 flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
-                </span>
-              </>
-            ) : (
-              <Mic className="pointer-events-none h-4 w-4" />
-            )}
-          </button>
-        )}
-        <textarea
-          ref={inputRef}
-          value={input}
-          onChange={(event) => onInputChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== "Enter") return;
+        <div className="relative flex min-h-16 min-w-0 flex-1 items-center rounded-[22px] border border-border-soft bg-white shadow-sm transition focus-within:border-brand-400 focus-within:ring-[3px] focus-within:ring-brand-500/15">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(event) => onInputChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
 
-            const textarea = event.currentTarget;
+              const textarea = event.currentTarget;
 
-            if (!event.shiftKey) {
+              if (!event.shiftKey) {
+                event.preventDefault();
+                textarea.form?.requestSubmit();
+                return;
+              }
+
               event.preventDefault();
-              textarea.form?.requestSubmit();
-              return;
-            }
+              const { selectionStart, selectionEnd, value } = textarea;
+              const start = selectionStart ?? value.length;
+              const end = selectionEnd ?? value.length;
+              const nextValue = `${value.slice(0, start)}\n${value.slice(end)}`;
 
-            event.preventDefault();
-            const { selectionStart, selectionEnd, value } = textarea;
-            const start = selectionStart ?? value.length;
-            const end = selectionEnd ?? value.length;
-            const nextValue = `${value.slice(0, start)}\n${value.slice(end)}`;
-
-            pendingCursorRef.current = start + 1;
-            onInputChange(nextValue);
-          }}
-          placeholder="Ask anything..."
-          rows={1}
-          className="min-h-11 max-h-28 min-w-0 flex-1 resize-none rounded-xl border border-border-soft bg-white px-3.5 py-2.5 text-sm leading-5 outline-none transition scrollbar-none placeholder:text-text-muted focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15 [&::-webkit-scrollbar]:hidden"
-        />
-        <Button
+              pendingCursorRef.current = start + 1;
+              onInputChange(nextValue);
+            }}
+            placeholder="Ask about your family..."
+            rows={1}
+            className="max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-[22px] border-0 bg-transparent py-2.5 pl-4 pr-11 text-base leading-5 text-text-primary outline-none scrollbar-none placeholder:text-text-muted [&::-webkit-scrollbar]:hidden"
+          />
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={listening ? stopSpeech : startSpeech}
+              disabled={isSending}
+              aria-label={listening ? "Stop recording" : "Start voice input"}
+              className={`absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-50 ${
+                listening
+                  ? "text-red-500 hover:bg-red-50 hover:text-red-600"
+                  : "text-text-muted hover:bg-warm-50 hover:text-text-secondary"
+              }`}
+            >
+              {listening ? (
+                <>
+                  <MicOff className="pointer-events-none h-5 w-5" />
+                  <span className="pointer-events-none absolute right-0 top-0 flex h-2.5 w-2.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                  </span>
+                </>
+              ) : (
+                <Mic className="pointer-events-none h-5 w-5" />
+              )}
+            </button>
+          )}
+        </div>
+        <button
           type="submit"
-          loading={isSending}
-          disabled={!input.trim() && !attachedImage}
-          className="h-11 w-11 shrink-0 !px-0"
-          size="md"
+          disabled={isSending || (!input.trim() && !attachedImage)}
+          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm transition hover:from-brand-600 hover:to-brand-700 hover:shadow-md active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
           aria-label="Send message"
         >
-          <SendHorizontal className="h-4 w-4" aria-hidden="true" />
-        </Button>
+          <SendHorizontal className="h-6 w-6" aria-hidden="true" />
+        </button>
       </form>
     </div>
   );

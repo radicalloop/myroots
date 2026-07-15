@@ -1,12 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  Check,
-  Copy,
-  Link2,
-  MessageCircle,
-  Share2,
-  Trash2,
-} from "lucide-react";
+import { Check, Link2, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -35,9 +28,9 @@ interface ShareModalProps {
 
 const urlBase = window.location.origin;
 
-function getShareUrl(token: string): string {
-  return `${urlBase}/accept-share/${token}`;
-}
+// function getShareUrl(token: string): string {
+//   return `${urlBase}/accept-share/${token}`;
+// }
 
 function getPublicTreeUrl(treeId: string): string {
   return `${urlBase}${ROUTES.PUBLIC_TREE(treeId)}`;
@@ -79,7 +72,6 @@ export function ShareModal({
   const deleteShare = useDeleteTreeShare(treeId);
   const [email, setEmail] = useState("");
   const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [publicLinkCopied, setPublicLinkCopied] = useState(false);
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const publicTreeUrl = useMemo(() => getPublicTreeUrl(treeId), [treeId]);
@@ -94,12 +86,6 @@ export function ShareModal({
       { sharedWithEmail: email.trim(), permission },
       { onSuccess: () => setEmail("") },
     );
-  };
-
-  const handleCopyLink = (token: string) => {
-    void navigator.clipboard.writeText(getShareUrl(token));
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
   };
 
   const handleCopyPublicLink = async () => {

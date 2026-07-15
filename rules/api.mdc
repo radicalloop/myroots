@@ -1,0 +1,176 @@
+---
+alwaysApply: true
+---
+
+# API Design Rules
+
+## REST Conventions
+
+Use standard REST resource naming — always plural, lowercase, kebab-case.
+
+```
+GET    /users              → list users (paginated)
+GET    /users/:id          → get single user
+POST   /users              → create user
+PATCH  /users/:id          → partial update
+DELETE /users/:id          → delete user
+
+GET    /users/:id/orders   → nested resource
+POST   /auth/login         → action endpoint (verb allowed)
+POST   /auth/refresh       → action endpoint
+POST   /auth/logout        → action endpoint
+```
+
+---
+
+## HTTP Status Codes
+
+Always return the correct status code.
+
+```
+200 OK             → successful GET, PATCH, DELETE
+201 Created        → successful POST (resource created)
+204 No Content     → DELETE with no body
+400 Bad Request    → validation failure, malformed input
+401 Unauthorized   → missing or invalid auth token
+403 Forbidden      → authenticated but lacks permission
+404 Not Found      → resource does not exist
+409 Conflict       → duplicate resource (email, slug, etc.)
+422 Unprocessable  → business rule violation
+429 Too Many Reqs  → rate limit exceeded
+500 Server Error   → unexpected internal error
+```
+
+---
+
+## Response Format
+
+All responses use `ApiResponse` utility. Never return raw objects.
+
+### Success
+```ts
+return ApiResponse.success(data, 'User fetched successfully');
+// { success: true, message: '...', data: {...} }
+```
+
+### Created
+```ts
+return ApiResponse.created(data, 'User created successfully');
+// 201 status
+```
+
+### Paginated
+```ts
+return ApiResponse.paginated(data, meta, 'Users fetched successfully');
+// { success: true, message: '...', data: [...], meta: { total, page, limit, totalPages } }
+```
+
+### Error (thrown in service, caught by global filter)
+```ts
+throw new ApiError(404, 'User not found');
+// { success: false, message: 'User not found', statusCode: 404 }
+```
+
+---
+
+## Request Validation
+
+- Every POST/PATCH endpoint requires a DTO with class-validator decorators
+- `ValidationPipe` must be enabled globally with `whitelist: true`
+- Query params validated via query DTOs with `@IsOptional()` decorators
+- Never trust raw `req.body` — always pipe through DTO
+
+---
+
+## Versioning
+
+- API versioning via URI prefix: `/v1/`, `/v2/`
+- Never break existing versions — create new version for breaking changes
+- Default version prefix: `/api/v1/`
+
+---
+
+## Controller Rules
+
+```ts
+@ApiTags('Users')
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get all users' })
+  async findAll(@Query() query: QueryUserDto) {
+    const data = await this.userService.findAll(query);
+    return ApiResponse.paginated(data.items, data.meta, 'Users fetched');
+  }
+}
+```
+
+---
+
+## Pagination
+
+All list endpoints must support:
+
+```
+GET /users?page=1&limit=20&sortBy=createdAt&sortOrder=desc&search=john
+```
+
+Query DTO:
+```ts
+export class QueryUserDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc' = 'desc';
+}
+```
+
+---
+
+## User Profile (app)
+
+Authenticated user profile updates live under `ProfileModule`, not `AuthModule`.
+
+```
+PATCH /api/users/me/profile     [auth] — partial profile update
+POST  /api/users/me/profile/image   [auth] — upload image (multipart)
+GET   /api/users/me/profile/image   [auth] — signed URL for image
+```
+
+- Use `PATCH` with `UpdateProfileDto` (class-validator)
+- Swagger decorators in `profile/swagger/profile.swagger.ts`
+- Viewer fields: `displayName`
+- Creator fields: `displayName`, `bio`, `niche`, `handle`, `connectedPlatforms`
+- Do not expose `dailySpendCapGems` on this update endpoint
+
+---
+
+## Forbidden
+
+❌ Raw objects returned from controllers
+❌ Missing status codes (defaulting everything to 200)
+❌ Unvalidated request bodies
+❌ Business logic inside controllers
+❌ Inconsistent response shapes across modules
+❌ Deeply nested routes beyond 2 levels (`/a/:id/b/:id/c`)
+❌ Plural + singular mixed naming (`/user` and `/users` coexisting)
+❌ Query params used for authentication

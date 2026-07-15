@@ -1,0 +1,164 @@
+---
+alwaysApply: true
+---
+
+# Auth Rules
+
+## Architecture
+
+Auth lives at `backend/src/auth/` (not `src/modules/auth/`).
+
+```
+auth/
+├── dto/
+├── helpers/
+├── strategy/
+├── swagger/
+├── types/
+├── auth.controller.ts
+├── admin-auth.controller.ts
+├── auth.service.ts
+├── auth.db.service.ts      ← all auth Prisma queries here (no repository/)
+├── auth-db.module.ts       ← exports AuthDbService only
+└── auth.module.ts          ← JWT, passport, controllers; email services in providers
+```
+
+Email lives at `backend/src/email/`. Auth-related email endpoints stay on `AuthController`; profile endpoints stay on `ProfileController`.
+
+---
+
+## Module Wiring (no full cross-imports)
+
+`AuthModule` and `EmailModule` must **not** import each other.
+
+| Module        | Gets dependencies via |
+|---------------|------------------------|
+| `EmailModule` | `AuthDbService` in `providers` |
+| `AuthModule`  | `EmailService`, `EmailVerificationService`, `PasswordResetService`, + their deps in `providers` |
+| `AuthModule`  | `AuthDbModule` import for its own auth db layer only |
+
+❌ `imports: [forwardRef(() => EmailModule)]` in `AuthModule`  
+❌ `imports: [AuthModule]` or `imports: [AuthDbModule]` in `EmailModule` when only `AuthDbService` is needed — put `AuthDbService` in `providers` instead
+
+---
+
+## Token Strategy
+
+- Access token: short-lived (15 minutes)
+- Refresh token: long-lived (7 days), stored hashed in DB
+- Both tokens are JWTs signed with separate secrets
+
+```ts
+// auth.types.ts
+export interface JwtPayload {
+  sub: string;       // user ID
+  email: string;
+  role: UserRole;
+  iat?: number;
+  exp?: number;
+}
+
+export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+}
+```
+
+---
+
+## JWT Strategy
+
+```ts
+@Injectable()
+export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
+  constructor(private configService: ConfigService) {
+    super({
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      ignoreExpiration: false,
+      secretOrKey: configService.get<string>('JWT_SECRET'),
+    });
+  }
+
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    return payload;
+  }
+}
+```
+
+---
+
+## Password Rules
+
+- Hash with bcrypt, minimum 12 rounds in production (10 in dev)
+- Never store plain passwords
+- Never log passwords
+- Never return passwords in any response
+
+```ts
+// user.helper.ts
+async hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
+}
+
+async verifyPassword(plain: string, hashed: string): Promise<boolean> {
+  return bcrypt.compare(plain, hashed);
+}
+```
+
+---
+
+## Token Refresh Flow
+
+1. Client sends expired access token + valid refresh token
+2. Server validates refresh token against hashed version in DB
+3. If valid: rotate refresh token, issue new access + refresh tokens
+4. If invalid: revoke all sessions for the user (force re-login)
+
+---
+
+## Logout
+
+- Delete refresh token from DB on logout
+- Stateless access tokens cannot be revoked — keep them short-lived
+- On "logout all devices": delete all refresh tokens for user
+
+---
+
+## Rate Limiting on Auth Endpoints
+
+```ts
+@Throttle({ default: { limit: 5, ttl: 60000 } })  // 5 req per minute
+@Post('login')
+```
+
+Apply strict throttling on:
+- `POST /auth/login`
+- `POST /auth/register`
+- `POST /auth/forgot-password`
+- `POST /auth/refresh`
+
+---
+
+## Rules
+
+- Never store access tokens in DB — they are stateless
+- Always store refresh tokens hashed (bcrypt or SHA256)
+- Always rotate refresh tokens on each use
+- Never reuse refresh tokens after rotation (token reuse = revoke all)
+- Session invalidation on password change — delete all refresh tokens
+- Always validate token expiry — never set `ignoreExpiration: true` in production
+- Use `ConfigService` for all secrets — never hardcode JWT secrets
+
+---
+
+## Forbidden
+
+❌ Storing plain refresh tokens in DB
+❌ Access tokens in database
+❌ Hardcoded JWT secrets
+❌ `ignoreExpiration: true` in production
+❌ Returning password fields in any auth response
+❌ Missing throttle on auth endpoints
+❌ Reusing refresh tokens after rotation
+❌ Separate `auth/repository/auth.repository.ts` that only wraps `auth.db.service` — keep Prisma in `auth.db.service.ts`
+❌ Importing `EmailModule` into `AuthModule` or `AuthModule` into `EmailModule`

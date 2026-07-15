@@ -1,0 +1,112 @@
+---
+alwaysApply: true
+---
+
+# Pipes Rules
+
+## Responsibility
+
+Pipes transform and validate input data before it reaches the handler.
+
+Use pipes for:
+- Input validation (via `ValidationPipe`)
+- Type coercion (string → number, string → UUID)
+- Sanitisation (trimming, normalising)
+
+Do NOT use pipes for:
+- Business logic
+- Database queries
+- Authentication
+
+---
+
+## Built-in Pipes to Always Use
+
+```ts
+ParseUUIDPipe    → validates and parses UUID params
+ParseIntPipe     → validates and parses integer params
+ParseBoolPipe    → validates and parses boolean params
+ValidationPipe   → validates DTOs via class-validator
+```
+
+Usage:
+```ts
+@Get(':id')
+findOne(@Param('id', ParseUUIDPipe) id: string) { ... }
+
+@Get('pages/:page')
+getPage(@Param('page', ParseIntPipe) page: number) { ... }
+```
+
+---
+
+## Global ValidationPipe (main.ts)
+
+```ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true,                    // strip unknown fields
+    forbidNonWhitelisted: true,         // reject unknown fields with 400
+    transform: true,                    // auto-transform to DTO class instance
+    transformOptions: {
+      enableImplicitConversion: false,  // explicit @Type() required
+    },
+    exceptionFactory: (errors) => {
+      const messages = errors.map((e) =>
+        Object.values(e.constraints ?? {}).join(', ')
+      );
+      return new BadRequestException(messages.join('; '));
+    },
+  }),
+);
+```
+
+---
+
+## Custom Pipe Example
+
+```ts
+import { PipeTransform, Injectable, BadRequestException } from '@nestjs/common';
+
+@Injectable()
+export class TrimStringPipe implements PipeTransform {
+  transform(value: any) {
+    if (typeof value === 'string') return value.trim();
+    if (typeof value === 'object' && value !== null) {
+      return Object.fromEntries(
+        Object.entries(value).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v.trim() : v,
+        ]),
+      );
+    }
+    return value;
+  }
+}
+```
+
+Usage:
+```ts
+@Post()
+create(@Body(TrimStringPipe) dto: CreateUserDto) { ... }
+```
+
+---
+
+## Rules
+
+- Always use `ParseUUIDPipe` for `:id` route params
+- Never accept raw string IDs without validation
+- Use `TrimStringPipe` on text inputs that could have accidental whitespace
+- Never put business logic inside pipes
+- Custom pipes must be pure and stateless
+
+---
+
+## Forbidden
+
+❌ Business logic inside pipes
+❌ Database access inside pipes
+❌ Skipping `ParseUUIDPipe` on UUID params
+❌ Raw string `req.params.id` without pipe validation
+❌ Catching pipe exceptions inside handlers — let global filter handle them

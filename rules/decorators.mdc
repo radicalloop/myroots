@@ -1,0 +1,150 @@
+---
+alwaysApply: true
+---
+
+# Custom Decorators Rules
+
+## Responsibility
+
+Custom decorators reduce boilerplate and enforce consistent patterns across controllers.
+
+---
+
+## @CurrentUser()
+
+Extracts the authenticated user from `request.user`:
+
+```ts
+import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext) => {
+    const request = ctx.switchToHttp().getRequest();
+    return request.user;
+  },
+);
+```
+
+Usage:
+```ts
+@Get('me')
+@UseGuards(JwtAuthGuard)
+getMe(@CurrentUser() user: JwtPayload) {
+  return this.userService.findOne(user.id);
+}
+```
+
+---
+
+## @Roles()
+
+Sets allowed roles metadata for `RolesGuard`:
+
+```ts
+import { SetMetadata } from '@nestjs/common';
+import { UserRole } from '../../user/types/user.types';
+
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+```
+
+Usage:
+```ts
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Get()
+findAll() { ... }
+```
+
+---
+
+## @Public()
+
+Marks a route as public (skips JWT validation):
+
+```ts
+import { SetMetadata } from '@nestjs/common';
+
+export const IS_PUBLIC_KEY = 'isPublic';
+export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
+```
+
+Guard must check for this:
+```ts
+const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+  context.getHandler(),
+  context.getClass(),
+]);
+if (isPublic) return true;
+```
+
+Usage:
+```ts
+@Public()
+@Post('auth/login')
+login(@Body() dto: LoginDto) { ... }
+```
+
+---
+
+## @ApiPaginatedResponse()
+
+Custom Swagger decorator for paginated responses:
+
+```ts
+import { applyDecorators, Type } from '@nestjs/common';
+import { ApiExtraModels, ApiOkResponse, getSchemaPath } from '@nestjs/swagger';
+
+export const ApiPaginatedResponse = <T extends Type<unknown>>(model: T) =>
+  applyDecorators(
+    ApiExtraModels(model),
+    ApiOkResponse({
+      schema: {
+        properties: {
+          success: { type: 'boolean' },
+          message: { type: 'string' },
+          data: { type: 'array', items: { $ref: getSchemaPath(model) } },
+          meta: {
+            properties: {
+              total: { type: 'number' },
+              page: { type: 'number' },
+              limit: { type: 'number' },
+              totalPages: { type: 'number' },
+            },
+          },
+        },
+      },
+    }),
+  );
+```
+
+---
+
+## Rules
+
+- Place all custom decorators in `src/common/decorators/`
+- Never inline decorator logic in controllers
+- Document what each decorator does with a short JSDoc comment
+- Decorators must be pure — no side effects
+- Param decorators extract data only — never mutate request
+
+---
+
+## Folder Structure
+
+```
+src/common/decorators/
+├── current-user.decorator.ts
+├── roles.decorator.ts
+├── public.decorator.ts
+└── api-paginated-response.decorator.ts
+```
+
+---
+
+## Forbidden
+
+❌ Business logic inside decorators
+❌ Database calls inside param decorators
+❌ Duplicate decorator definitions across modules
+❌ `request.user` accessed directly without `@CurrentUser()`

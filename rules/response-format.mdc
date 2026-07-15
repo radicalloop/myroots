@@ -1,0 +1,63 @@
+---
+alwaysApply: true
+---
+
+# Response Format Rules
+
+## Standard API Response
+
+- Always use the shared response utility:
+
+
+
+- Never create custom response objects.
+- Never return raw objects directly from controllers.
+- Maintain a consistent response structure across the application.
+- All success responses must use `ApiResponse`.
+
+## Rules
+
+- Use `ApiResponse.success()` for successful requests.
+- Use `ApiResponse.created()` for resource creation.
+- Use `ApiResponse.paginated()` for paginated endpoints.
+- Keep response formats consistent across all modules.
+- Include meaningful messages.
+- Do not duplicate response wrapper logic.
+
+## Example
+
+```ts
+return ApiResponse.success(
+  data,
+  'User fetched successfully',
+);
+```
+
+## Prohibited
+
+❌
+
+```ts
+return {
+  success: true,
+  data,
+};
+```
+
+❌
+
+```ts
+return res.json({
+  message: 'Success',
+  data,
+});
+```
+
+✅
+
+```ts
+return ApiResponse.success(
+  data,
+  'Success',
+);
+```

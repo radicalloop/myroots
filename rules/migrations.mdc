@@ -1,0 +1,135 @@
+---
+alwaysApply: true
+---
+
+# Migrations Rules
+
+## Golden Rule
+
+Never modify the database schema manually. All changes go through Prisma migrations.
+
+---
+
+## Workflow
+
+```bash
+# 1. Edit schema.prisma
+# 2. Generate migration (dev)
+npx prisma migrate dev --name describe_the_change
+
+# 3. Review generated SQL in prisma/migrations/
+# 4. Apply to production
+npx prisma migrate deploy
+
+# 5. Never use prisma db push in production
+```
+
+---
+
+## Naming Convention
+
+Use descriptive, lowercase snake_case names:
+
+```
+20240101_add_users_table
+20240102_add_refresh_token_to_users
+20240115_add_orders_and_order_items
+20240120_add_index_on_orders_user_id
+20240201_add_soft_delete_to_products
+```
+
+Format: `YYYYMMDD_description`
+
+---
+
+## Migration Contents
+
+Each migration should do ONE logical thing:
+
+```sql
+-- Good: focused migration
+ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20);
+CREATE INDEX "users_phone_idx" ON "users"("phone");
+
+-- Bad: mixing unrelated changes in one migration
+ALTER TABLE "users" ADD COLUMN "phone" VARCHAR(20);
+ALTER TABLE "orders" ADD COLUMN "notes" TEXT;
+DROP TABLE "legacy_logs";
+```
+
+---
+
+## Adding Columns to Existing Tables
+
+Always add columns as nullable first when table has existing data:
+
+```prisma
+// Step 1: nullable (safe to deploy)
+phone String?
+
+// Step 2: after backfilling data, make required
+phone String
+```
+
+---
+
+## Removing Columns
+
+Never remove a column in the same deployment that removes it from application code.
+
+1. Deploy: remove column from all application queries
+2. Verify in production no code references the column
+3. Deploy: create migration to drop the column
+
+---
+
+## Data Migrations
+
+For migrating data alongside schema changes, use a separate seed/script:
+
+```ts
+// scripts/migrate-user-phone.ts
+const users = await prisma.user.findMany({ where: { phone: null } });
+for (const user of users) {
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { phone: extractPhone(user.legacyData) },
+  });
+}
+```
+
+Never include data transformations inside Prisma migration SQL files.
+
+---
+
+## Rules
+
+- Never edit existing migration files — only create new ones
+- Never use `prisma db push` in staging or production
+- Always review generated SQL before applying
+- Test migrations on a copy of production data before deploying
+- Each migration = one logical change
+- Never include data migration logic in schema migration SQL
+- Always back up the database before running migrations in production
+- Always run `prisma generate` after schema changes
+
+---
+
+## Rollback Strategy
+
+Prisma doesn't natively support down migrations. Plan for rollback by:
+1. Creating a companion migration that reverses the change
+2. Or restoring from backup
+3. For additive changes (adding columns): just drop the column
+
+---
+
+## Forbidden
+
+❌ Manual `ALTER TABLE` on production database
+❌ `prisma db push` on production or staging
+❌ Editing existing migration files
+❌ Mixing unrelated schema changes in one migration
+❌ Deploying non-nullable column additions without a default or backfill
+❌ Data transformation logic inside migration SQL
+❌ Skipping migration review before production deploy

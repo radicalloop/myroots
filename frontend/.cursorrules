@@ -1,0 +1,849 @@
+# ============================================================
+# .cursorrules — Production AI Coding Rules
+# Applies to: Cursor Chat, Composer, Agent
+# Stack: NestJS + Prisma + PostgreSQL | React Admin | React Native
+# Principle: Correctness + simplicity over speed
+# ============================================================
+
+
+# ════════════════════════════════════════════════
+# 0 — REPOSITORY STRUCTURE
+# ════════════════════════════════════════════════
+
+# This repo contains 3 applications:
+#
+#   /backend  — NestJS + Prisma + PostgreSQL (APIs, auth, business logic)
+#   /admin    — React web admin dashboard (internal tools, management UI)
+#   /app      — React Native mobile app (iOS + Android, end-user experience)
+#
+# Always respect boundaries. Never mix concerns across apps.
+# Each app has its own rules defined below.
+
+
+# ════════════════════════════════════════════════
+# 1 — AGENT BEHAVIOUR (ALWAYS APPLY)
+# ════════════════════════════════════════════════
+
+## 1.1 Think Before Coding
+- State your assumptions explicitly before writing any code.
+- If anything is unclear, ask — do not guess.
+- Provide alternatives when ambiguity exists.
+- Stop and request clarification when key information is missing.
+
+## 1.2 Simplicity First
+- Write the minimum code required to solve the problem.
+- No speculative features, premature abstractions, or future-proofing.
+- No unnecessary layers, wrappers, or patterns.
+- Prefer direct, readable solutions over clever ones.
+
+## 1.3 Surgical Changes Only
+- Modify only what is required for the current task.
+- Do not refactor, rename, or reformat code outside the scope.
+- Respect existing patterns in each folder and app.
+- Flag inconsistencies — do not fix them unless explicitly asked.
+
+## 1.4 Goal-Driven Execution
+- Define clear success criteria before writing any code.
+- Work iteratively toward verification.
+- Stop when the defined goal is achieved — do not over-engineer.
+
+## 1.5 Checkpoint in Multi-Step Tasks (Agent Mode)
+After each major step, always summarise:
+  - What was changed
+  - What is verified
+  - What is pending
+Stop if context becomes unclear or incomplete.
+
+## 1.6 Fail Loud
+- Never silently skip steps.
+- Never mark incomplete work as done.
+- Always surface uncertainty or missing validation.
+- Edge cases must be explicitly verified or flagged.
+
+## 1.7 Read Before Writing
+- Inspect related files before making changes.
+- Understand exports, usage, and dependencies first.
+- If structure or intent is unclear, ask before extending.
+
+## 1.8 Resolve Conflicts Explicitly
+- Do not merge conflicting patterns.
+- Choose the most recent or most consistently used pattern.
+- Explain the choice.
+- Flag other inconsistencies for later cleanup.
+
+
+# ════════════════════════════════════════════════
+# 2 — UNIVERSAL CODE QUALITY (ALL APPS)
+# ════════════════════════════════════════════════
+
+- Code must be clean, readable, and production-ready at all times.
+- No dead code, unused imports, or unreachable logic.
+- No duplicate logic — reuse where appropriate.
+- Keep functions small and focused (single responsibility).
+- Prefer clarity over cleverness.
+- Prefer early returns over deeply nested conditionals.
+- Follow existing naming conventions strictly per folder.
+- Ensure proper error handling — no silent failures.
+- Remove all console.log statements before marking work complete.
+- No file should exceed 250 lines of code.
+  → If a file grows beyond this: split into logical modules, services, or components.
+  → Extract reusable utilities where appropriate.
+  → This rule is non-negotiable — never extend a large file instead of refactoring.
+
+
+# ════════════════════════════════════════════════
+# 3 — TYPESCRIPT (ALL APPS)
+# ════════════════════════════════════════════════
+
+- Use TypeScript everywhere, in all three apps.
+- Enable strict mode in tsconfig.
+- Never use `any`. Use `unknown` when type is truly unknown, then narrow it.
+- Define explicit types for: props, API responses, hooks, utilities, function params.
+- Prefer `interface` for object shapes; prefer `type` for unions and intersections.
+- Use enums only when values are truly fixed and meaningful.
+- Use generics when applicable.
+- Avoid type assertions (`as`) unless absolutely necessary.
+- Export shared types from dedicated `.types.ts` files.
+
+✅
+```ts
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+```
+
+❌
+```ts
+const user: any = {};
+const data = response as SomeType;
+```
+
+
+# ════════════════════════════════════════════════
+# 4 — NAMING CONVENTIONS (ALL APPS)
+# ════════════════════════════════════════════════
+
+## Files
+- Components:              PascalCase       → UserCard.tsx, ProfileModal.tsx
+- Hooks:                   camelCase        → useUsers.ts, useAuth.ts
+- Utilities:               camelCase        → formatDate.ts, truncateText.ts
+- Types:                   kebab-case       → user.types.ts, auth.types.ts
+- API files:               kebab-case       → user.api.ts, post.api.ts
+- Query hooks:             kebab-case       → user.query.ts, auth.query.ts
+- Constants:               kebab-case       → query-keys.ts, routes.ts
+- NestJS modules:          kebab-case       → user.controller.ts, user.service.ts
+
+## Variables & Functions
+- Variables:               camelCase        → userId, isLoading
+- Functions:               camelCase        → getUser(), formatPrice()
+- Constants:               UPPER_SNAKE_CASE → MAX_RETRY, API_URL
+- Classes:                 PascalCase       → UserService, AuthGuard
+- Interfaces:              PascalCase       → CreateUserDto, UserResponse
+- Enums:                   PascalCase       → UserRole, OrderStatus
+- Enum values:             UPPER_SNAKE_CASE → UserRole.SUPER_ADMIN
+
+## Folders
+- Always use:              kebab-case       → user-profile/, order-items/
+
+
+# ════════════════════════════════════════════════
+# 5 — BACKEND (NestJS + Prisma + PostgreSQL)
+# ════════════════════════════════════════════════
+
+## 5.1 Module Structure
+Every module must follow this exact folder and file layout — no exceptions:
+
+```
+<module-name>/
+├── dto/
+│   ├── create-<module>.dto.ts
+│   ├── update-<module>.dto.ts
+│   └── query-<module>.dto.ts
+├── guards/
+│   └── <specific>.guard.ts
+├── helpers/
+│   └── <module>.helper.ts
+├── repository/                    ← optional; auth uses db.service only
+│   └── <module>.repository.ts
+├── swagger/
+│   └── <module>.swagger.ts
+├── types/
+│   └── <module>.types.ts
+├── <module>.controller.ts
+├── <module>.service.ts
+├── <module>.db.service.ts
+└── <module>.module.ts
+```
+
+Never invent custom structures per module. Every module must look identical unless documented (e.g. `auth/` has no `repository/` — Prisma lives in `auth.db.service.ts`).
+
+## 5.1b Module Dependencies (NestJS)
+
+- Do NOT import a full feature module when you only need 1–2 services — register those services (+ direct deps) in `providers`.
+- Do NOT use `forwardRef(() => AuthModule)` / `forwardRef(() => EmailModule)` between feature modules.
+- `EmailModule`: `AuthDbService` in `providers` (not `AuthModule` import).
+- `AuthModule`: email services in `providers` (not `EmailModule` import); `AuthDbModule` for auth db layer only.
+
+## 5.2 Layer Responsibilities
+
+### Controller
+- Request handling, route decorators, guards, Swagger decorators only.
+- ❌ Never put business logic inside controllers.
+- ❌ Never put error logic inside controllers.
+
+### Service
+- Business logic, validation, events, notifications, orchestration.
+- ❌ Never write Prisma queries inside services.
+
+### Db Service
+- Prisma queries when no separate repository (auth pattern)
+- Cache handling, error mapping, query building, repository coordination when repository exists
+- If db.service only delegates to repository with no extra logic, merge into db.service and remove repository
+
+### Repository
+- Prisma queries only (optional layer — skip when db.service owns Prisma, see auth/)
+
+```ts
+// Only these patterns:
+findById(id: string)
+findByEmail(email: string)
+create(data: CreateUserDto)
+update(id: string, data: UpdateUserDto)
+delete(id: string)
+paginate(query: QueryDto)
+```
+
+### DTO
+- Request validation using class-validator and class-transformer.
+- ❌ Never use plain interfaces for request validation.
+
+### Helpers
+- Utility functions, password hashing, transformations, formatting.
+- ❌ No database queries inside helpers.
+
+### Types
+- Enums, interfaces, response types, Prisma extensions, shared types.
+
+### Guards
+- Authentication and authorization only.
+- ❌ No business logic inside guards.
+
+### Swagger
+- ApiOperation, ApiResponse, ApiBearerAuth decorators.
+- Keep all Swagger decorators separate from controllers, inside `/swagger`.
+
+## 5.3 Prisma Rules
+- Prisma queries belong in **repository** or **db.service** — never in business services or controllers.
+
+❌
+```ts
+// user.service.ts
+await this.prisma.user.findMany();
+```
+
+✅ (with repository)
+```ts
+// user.repository.ts
+async findAll() {
+  return this.prisma.user.findMany();
+}
+```
+
+✅ (without repository — auth)
+```ts
+// auth.db.service.ts
+findUserById(id: string) {
+  return this.prisma.user.findUnique({ where: { id } });
+}
+```
+
+## 5.4 N+1 Query Prevention
+- Never execute queries inside loops.
+
+❌
+```ts
+for (const user of users) {
+  await prisma.profile.findUnique({ where: { userId: user.id } });
+}
+```
+
+✅ Use `include`, `select`, joins, `groupBy`, batch queries, or `Promise.all`.
+```ts
+await prisma.user.findMany({
+  include: { profile: true },
+});
+```
+
+## 5.5 Query Optimisation
+- Always use `select` — fetch only required fields.
+- Paginate all large list endpoints.
+- Use database indexes for all queried columns.
+- Avoid unnecessary relation loads.
+- Use transactions for multi-step writes.
+
+## 5.6 Error Handling
+- Always use the shared `ApiError` utility:
+  ```
+  src/utils/ApiError.ts
+  ```
+- Never throw generic `Error` or raw objects.
+- Use appropriate HTTP status codes.
+- Error messages must be clear and user-friendly.
+- Never expose internal implementation details in error responses.
+- Services throw errors — controllers never contain error logic.
+
+```ts
+// ✅ Correct
+throw new ApiError(404, 'User not found');
+throw new ApiError(409, 'Email already exists');
+throw new ApiError(401, 'Unauthorized');
+throw new ApiError(403, 'Permission denied');
+throw new ApiError(500, 'Something went wrong');
+
+// ❌ Forbidden
+throw new Error('User not found');
+throw { status: 400, message: 'Bad Request' };
+return { success: false, error: 'Something went wrong' };
+```
+
+## 5.7 Response Format
+- Always use the shared `ApiResponse` utility:
+  ```
+  src/utils/ApiResponse.ts
+  ```
+- Never create custom response objects.
+- Never return raw objects from controllers.
+
+```ts
+// ✅ Correct
+return ApiResponse.success(data, 'User fetched successfully');
+return ApiResponse.created(data, 'User created successfully');
+return ApiResponse.paginated(data, meta, 'Users fetched successfully');
+
+// ❌ Forbidden
+return { success: true, data };
+return res.json({ message: 'Success', data });
+```
+
+## 5.8 Validation
+- Use `class-validator` and `class-transformer` on all DTOs.
+- Enable `ValidationPipe` globally with `whitelist: true, forbidNonWhitelisted: true`.
+- Sanitise all input — never trust raw user input.
+- Validate and whitelist all query params.
+
+```ts
+// ✅ DTO example
+export class CreateUserDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
+}
+```
+
+## 5.9 Authentication & JWT
+- Always validate JWT tokens in guards, not in services or controllers.
+- Never expose raw JWT secrets in code — use `ConfigService`.
+- Attach the authenticated user to `request.user` via `JwtStrategy`.
+- Use `@CurrentUser()` custom decorator to access user in controllers.
+- Access and refresh token pattern: short-lived access (15m), longer refresh (7d).
+- Hash all passwords with bcrypt (minimum 10 rounds) before storing.
+- Never log or return passwords in any response.
+
+## 5.10 Roles & Permissions
+- Always use role-based guards (`RolesGuard`) with the `@Roles()` decorator.
+- Never hard-code role checks inside services.
+- Define all roles in a shared enum.
+- Permission checks happen at the guard layer — not in services.
+
+```ts
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Get('admin/users')
+getUsers() { ... }
+```
+
+## 5.11 Logging
+- Use NestJS `Logger` (not `console.log`) for all backend logging.
+- Log at appropriate levels: `log`, `warn`, `error`, `debug`, `verbose`.
+- Always log errors with context (module name).
+- Never log passwords, tokens, or sensitive PII.
+- In production, structured JSON logging is required.
+
+```ts
+private readonly logger = new Logger(UserService.name);
+this.logger.log('User created successfully');
+this.logger.error('Failed to create user', error.stack);
+```
+
+## 5.12 Rate Limiting
+- Apply `@Throttle()` to all public-facing endpoints.
+- Apply stricter limits to auth endpoints (login, register, forgot-password).
+- Use `ThrottlerGuard` globally and override per-endpoint where needed.
+
+```ts
+@Throttle({ default: { limit: 5, ttl: 60000 } })
+@Post('auth/login')
+login() { ... }
+```
+
+## 5.13 Security
+- Helmet enabled globally.
+- CORS configured to whitelist only allowed origins — never use wildcard `*` in production.
+- All sensitive config loaded via `ConfigService` (never hardcoded).
+- Never commit `.env` files.
+- Sanitise file uploads: validate MIME type, extension, and file size.
+- Use `express-rate-limit` for additional DDoS protection.
+- Parameterised queries only — never string-interpolated SQL.
+
+## 5.14 Swagger / API Documentation
+- Every controller endpoint must have:
+  - `@ApiOperation({ summary: '...' })`
+  - `@ApiResponse({ status: ..., description: '...' })`
+  - `@ApiBearerAuth()` where authentication is required
+- Keep all Swagger decorators in the `/swagger` folder, not inside the controller.
+- Tag all controller methods by module using `@ApiTags`.
+
+## 5.15 Database Migrations
+- Never modify the database manually — all changes go through Prisma migrations.
+- Never edit existing migration files.
+- Migration naming convention: `YYYYMMDD_description_of_change`.
+- Always review `prisma migrate diff` before applying in production.
+- Seed data lives in `prisma/seed.ts` — never in migrations.
+
+## 5.16 WebSockets
+- Use NestJS `@WebSocketGateway()` for real-time features.
+- Authenticate WebSocket connections using JWT in the `handleConnection` hook.
+- Emit typed events — define event name constants in a shared types file.
+- Never handle business logic inside gateways — delegate to services.
+
+## 5.17 Interceptors & Middleware
+- Use interceptors for: response transformation, logging, caching headers.
+- Use middleware for: request logging, correlation IDs, basic pre-processing.
+- Never put business logic inside interceptors or middleware.
+- Apply interceptors at the module or controller level — avoid global overuse.
+
+## 5.18 Pipes
+- Use `ParseIntPipe`, `ParseUUIDPipe`, and `ValidationPipe` where appropriate.
+- Create custom pipes for complex transformations.
+- Pipes should be pure and side-effect free.
+
+## 5.19 File Uploads
+- Validate: MIME type, file extension, maximum file size.
+- Never store file paths or public URLs with sensitive data embedded.
+- Use a dedicated service (e.g. S3 wrapper) — never write upload logic in controllers.
+- Enforce size limits at the Multer config level.
+
+## 5.20 Backend — Forbidden
+❌ Business logic inside controllers
+❌ Prisma queries inside services
+❌ Prisma queries inside controllers
+❌ Raw SQL unless absolutely necessary (and reviewed)
+❌ N+1 queries
+❌ Database queries inside loops
+❌ Returning Prisma entities directly from controllers
+❌ Password or token fields in any API response
+❌ Files over 250 lines
+❌ circular dependencies
+❌ Hardcoded secrets or environment values
+❌ `console.log` in any backend file
+❌ Generic `new Error(...)` throws
+❌ Custom ad-hoc response shapes
+
+## 5.21 Backend Folder Structure
+```
+src/
+├── common/
+│   ├── decorators/
+│   ├── filters/
+│   ├── guards/
+│   ├── interceptors/
+│   ├── middleware/
+│   └── pipes/
+├── config/
+├── modules/
+│   ├── auth/
+│   ├── user/
+│   ├── product/
+│   └── ...
+├── prisma/
+│   └── prisma.service.ts
+├── utils/
+│   ├── ApiError.ts
+│   └── ApiResponse.ts
+└── main.ts
+```
+
+
+# ════════════════════════════════════════════════
+# 6 — ADMIN DASHBOARD (React + TypeScript)
+# ════════════════════════════════════════════════
+
+## 6.1 General Principles
+- Write clean, maintainable, and optimised code.
+- Prefer composition over duplication.
+- Keep components small and reusable (max 250 lines per file).
+- Extract complex logic into hooks, utilities, or child components.
+- Avoid unnecessary re-renders.
+- Follow SOLID principles.
+
+## 6.2 Tech Stack (Admin)
+### Core
+- TypeScript (strict)
+- React + React Router
+
+### API
+- Axios (configured instance at `src/lib/axios.ts`)
+- TanStack Query (useQuery, useMutation, invalidateQueries)
+
+### Styling
+- TailwindCSS
+- shadcn/ui
+
+### Forms
+- React Hook Form + Zod validation
+
+### State
+- TanStack Query for server state
+- Zustand for complex client state
+- React Context for small global state
+
+### Notifications
+- Sonner Toast (`toast.success()`, `toast.error()`)
+
+### Utilities
+- Lodash, Dayjs, clsx, class-variance-authority
+
+### Quality
+- ESLint, Prettier, Husky, lint-staged
+
+## 6.3 API Layer
+- Always use the configured Axios instance — never raw `fetch()`.
+- API files live at `src/api/` and contain only Axios calls.
+- No business logic, no toast notifications, no data transformations inside API files.
+- Always define request and response types.
+
+```ts
+// src/api/user.api.ts
+export const getUsers = (): Promise<ApiResponse<User[]>> =>
+  api.get('/admin/users');
+
+export const createUser = (data: CreateUserPayload): Promise<ApiResponse<User>> =>
+  api.post('/admin/users', data);
+```
+
+## 6.4 Server State (TanStack Query)
+- Never call APIs directly inside components.
+- Always wrap API calls in custom query/mutation hooks.
+- Use `select` to transform response shape at the hook level.
+- Use `staleTime` to prevent unnecessary refetches.
+- Centralise query keys in `src/constants/query-keys.ts`.
+
+```ts
+// src/hooks/api/user.query.ts
+export const useUsers = () =>
+  useQuery({
+    queryKey: QUERY_KEYS.USERS,
+    queryFn: getUsers,
+    select: (res) => res.data.data,
+    staleTime: 1000 * 60 * 5,
+  });
+
+export const useCreateUser = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
+      toast.success('User created successfully');
+    },
+    onError: (err) => toast.error(err.message),
+  });
+};
+```
+
+## 6.5 Forms (Admin)
+- Always use React Hook Form + Zod.
+- Keep Zod schemas outside components in `src/validations/`.
+- Use `zodResolver` to connect schema to form.
+- Show field-level validation errors.
+- Disable submit while pending (`isPending`).
+- Always show success and error toast messages.
+
+```ts
+// src/validations/user.validation.ts
+export const createUserSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(8, 'Minimum 8 characters'),
+  role: z.nativeEnum(UserRole),
+});
+```
+
+## 6.6 Providers
+- Use providers for globally shared data: `UserProvider`, `AuthProvider`, `ThemeProvider`.
+- Always expose data via custom hooks — never access context directly.
+- Location: `src/providers/`.
+
+```ts
+// ✅
+const { user } = useUser();
+// ❌
+const { user } = useContext(UserContext);
+```
+
+## 6.7 Component Structure
+```
+pages/UsersPage.tsx          ← UI only, renders components
+hooks/api/useUsers.ts        ← data fetching logic
+api/user.api.ts              ← Axios calls only
+validations/user.validation.ts ← Zod schemas
+components/UserTable.tsx     ← reusable table component
+```
+
+## 6.8 Loading & Error States
+- Every data-fetching screen must handle: `isLoading`, `isError`, empty state.
+- Use skeleton loaders — never blank screens.
+- Use `toast.error()` for all API errors — never `alert()`.
+
+## 6.9 Performance
+- Use `React.memo`, `useMemo`, `useCallback` only when there's a measurable benefit.
+- Paginate all large data lists.
+- Use `lazy()` + `Suspense` for route-level code splitting.
+
+## 6.10 Admin Folder Structure
+```
+src/
+├── api/
+├── assets/
+├── components/
+├── constants/
+├── hooks/
+│   ├── api/
+│   ├── forms/
+│   └── common/
+├── layouts/
+├── lib/
+│   └── axios.ts
+├── pages/
+├── providers/
+├── routes/
+├── store/
+├── styles/
+├── types/
+├── utils/
+└── validations/
+```
+
+## 6.11 Admin — Forbidden
+❌ `any` type
+❌ `fetch()` — use Axios instance
+❌ `alert()` — use toast
+❌ API calls directly inside components
+❌ Zod schemas inside JSX files
+❌ Business logic inside page components
+❌ Components larger than 250 lines
+❌ Hardcoded query keys
+❌ Direct context access (always use custom hooks)
+❌ Inline styles
+❌ Nested ternary operators
+❌ Duplicate utility functions
+❌ `console.log` before completion
+
+
+# ════════════════════════════════════════════════
+# 7 — REACT NATIVE APP (/app)
+# ════════════════════════════════════════════════
+
+## 7.1 Tech Stack (App)
+- TypeScript (strict)
+- React Native (bare or Expo — follow project setup)
+- Axios (configured instance)
+- TanStack Query (server state)
+- React Hook Form + Zod (forms)
+- React Navigation (routing)
+- Zustand (client state)
+- AsyncStorage (only for non-sensitive data)
+- Expo SecureStore (for tokens and sensitive values)
+- StyleSheet API or NativeWind (follow existing project pattern)
+- Sonner / react-native-toast (notifications)
+
+## 7.2 Structure
+- Mirror the admin folder structure where applicable.
+- Platform-specific files: use `.ios.ts` / `.android.ts` suffixes only when required.
+- Shared logic must live in `/app/src/hooks`, `/app/src/utils`, `/app/src/api`.
+
+## 7.3 Navigation
+- All routes defined in a central `src/routes/` or `src/navigation/` directory.
+- Never navigate by hardcoding route strings — use route constants.
+- Type all navigation params using React Navigation TypeScript patterns.
+
+## 7.4 Authentication
+- Store JWT access tokens in SecureStore — never in AsyncStorage.
+- Refresh token logic handled in the Axios interceptor.
+- Logout must clear all tokens and reset query cache.
+
+## 7.5 API Layer
+- Same rules as admin: Axios instance, TanStack Query hooks, no direct fetches in components.
+
+## 7.6 Forms (App)
+- React Hook Form + Zod — same as admin.
+- Keep schemas in `src/validations/`.
+
+## 7.7 Offline & Loading States
+- Handle network errors gracefully — show user-friendly offline states.
+- Every screen must handle loading, error, and empty states.
+- Use skeleton placeholders — never blank screens.
+
+## 7.8 Performance
+- Use `FlatList` or `FlashList` for all lists — never `ScrollView` with `.map()`.
+- Use `useCallback` for `keyExtractor` and `renderItem`.
+- Avoid heavy computation inside render.
+- Use `React.memo` for list item components.
+
+## 7.9 App — Forbidden
+❌ `any` type
+❌ `fetch()` — use Axios instance
+❌ Tokens stored in AsyncStorage
+❌ Route strings hardcoded throughout codebase
+❌ Business logic inside screen components
+❌ API calls directly inside JSX
+❌ `ScrollView` with `.map()` for long lists
+❌ Platform-specific code scattered throughout — isolate it
+❌ Files over 250 lines
+❌ `console.log` before completion
+
+
+# ════════════════════════════════════════════════
+# 8 — SECURITY STANDARDS (ALL APPS)
+# ════════════════════════════════════════════════
+
+- Never commit secrets, API keys, tokens, or credentials to source control.
+- Always load secrets via environment variables and validate on startup.
+- Never log passwords, tokens, or personal identifiable information.
+- Validate and sanitise all user input — frontend and backend.
+- Apply HTTPS everywhere — reject HTTP in production.
+- Use parameterised queries exclusively — no string-interpolated SQL.
+- Apply CSRF protection on all state-mutating web endpoints.
+- Enforce Content-Security-Policy headers on all web interfaces.
+- Rate-limit all authentication and sensitive endpoints.
+- Audit all file uploads for type, size, and content.
+- Revoke and rotate credentials immediately if exposed.
+
+
+# ════════════════════════════════════════════════
+# 9 — TESTING
+# ════════════════════════════════════════════════
+
+## Backend
+- Unit test all services using Jest.
+- Integration test all critical API endpoints using Supertest.
+- Mock all external dependencies (Prisma, third-party APIs).
+- Test unhappy paths, validation errors, and auth failures — not just happy paths.
+- Aim for meaningful coverage on service and repository layers.
+
+## Admin
+- Unit test hooks and utilities with Vitest or Jest.
+- Component test critical UI interactions with React Testing Library.
+
+## React Native
+- Unit test hooks and utilities with Jest.
+- Use Detox or similar for E2E flows on critical user journeys.
+
+## General
+- Test file naming: `<name>.spec.ts` for unit, `<name>.e2e.ts` for integration.
+- Never test implementation details — test behaviour and outcomes.
+- CI must run all tests on every pull request.
+
+
+# ════════════════════════════════════════════════
+# 10 — GIT & WORKFLOW
+# ════════════════════════════════════════════════
+
+## Commit Messages (Conventional Commits)
+```
+feat(user): add profile update endpoint
+fix(auth): resolve token refresh race condition
+refactor(order): split service into sub-services
+chore: update dependencies
+docs: add API documentation for payment module
+test(user): add unit tests for user service
+```
+
+## Branch Naming
+```
+feature/<ticket-id>-short-description
+fix/<ticket-id>-short-description
+chore/dependency-updates
+hotfix/<ticket-id>-short-description
+```
+
+## Pull Requests
+- Every PR must have a clear description of what changed and why.
+- No PR merges without passing CI (lint, type-check, tests).
+- Self-review diff before requesting review.
+- One logical change per PR — no mixed concerns.
+
+## Husky (Pre-commit)
+- ESLint must pass on staged files.
+- Prettier must format staged files.
+- TypeScript must type-check without errors.
+- No `console.log`, `TODO`, or `FIXME` in committed code.
+
+
+# ════════════════════════════════════════════════
+# 11 — ENVIRONMENT & CONFIG
+# ════════════════════════════════════════════════
+
+- All environment variables defined in `.env.example` with comments.
+- `.env` files never committed to source control (in `.gitignore`).
+- Backend: use NestJS `ConfigModule` with `validationSchema` (Joi or Zod).
+- Frontend: use `VITE_` prefix (admin) or Expo constants (app).
+- Validate required env vars at application startup — fail fast if missing.
+- Separate config per environment: `.env.development`, `.env.staging`, `.env.production`.
+
+
+# ════════════════════════════════════════════════
+# 12 — PERFORMANCE & SCALABILITY
+# ════════════════════════════════════════════════
+
+## Backend
+- Paginate all list endpoints — never return unbounded arrays.
+- Cache frequent read-heavy queries (Redis or in-memory).
+- Use database indexes on all foreign keys and frequently queried columns.
+- Use `select` in Prisma to avoid over-fetching.
+- Background jobs for heavy/async work (queues — BullMQ).
+- Avoid blocking the event loop — no synchronous CPU-heavy operations.
+
+## Frontend (Admin + App)
+- Paginate or virtualise large data lists.
+- Implement query `staleTime` to prevent over-fetching.
+- Route-level code splitting with `lazy()` + `Suspense` (admin).
+- Use `FlatList` / `FlashList` for scrollable lists (app).
+- Optimise images — use correct dimensions and formats.
+
+
+# ════════════════════════════════════════════════
+# QUICK REFERENCE — WHAT TO USE WHERE
+# ════════════════════════════════════════════════
+
+| Concern                  | Backend              | Admin                    | App                      |
+|--------------------------|----------------------|--------------------------|--------------------------|
+| HTTP client              | —                    | Axios instance           | Axios instance           |
+| Server state             | —                    | TanStack Query           | TanStack Query           |
+| Forms                    | class-validator DTOs | React Hook Form + Zod    | React Hook Form + Zod    |
+| Client state             | —                    | Zustand / Context        | Zustand / Context        |
+| Notifications            | —                    | Sonner toast             | React Native toast       |
+| Styling                  | —                    | TailwindCSS + shadcn/ui  | StyleSheet / NativeWind  |
+| Auth tokens              | JWT (ConfigService)  | Axios interceptor        | SecureStore              |
+| Error handling           | ApiError utility     | toast.error()            | toast / alert handler    |
+| Response shape           | ApiResponse utility  | Typed from API response  | Typed from API response  |
+| Logging                  | NestJS Logger        | (none in prod)           | (none in prod)           |
+| DB access                | Repository only      | —                        | —                        |
+| Validation               | ValidationPipe + DTO | Zod schema               | Zod schema               |

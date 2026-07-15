@@ -1,0 +1,144 @@
+---
+alwaysApply: true
+---
+
+# Cron Jobs Rules
+
+## Stack
+
+- NestJS `@nestjs/schedule` with `@Cron` decorator
+- Cron jobs live in dedicated scheduler services
+
+---
+
+## Setup
+
+```ts
+// app.module.ts
+ScheduleModule.forRoot(),
+```
+
+---
+
+## Structure
+
+```
+src/modules/scheduler/
+├── tasks/
+│   ├── cleanup.task.ts
+│   ├── report.task.ts
+│   └── sync.task.ts
+└── scheduler.module.ts
+```
+
+---
+
+## Task Service
+
+```ts
+// tasks/cleanup.task.ts
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+
+@Injectable()
+export class CleanupTask {
+  private readonly logger = new Logger(CleanupTask.name);
+
+  constructor(
+    private readonly userDb: UserDbService,
+    private readonly notificationDb: NotificationDbService,
+  ) {}
+
+  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async deleteExpiredTokens(): Promise<void> {
+    this.logger.log('Running: deleteExpiredTokens');
+    try {
+      const deleted = await this.userDb.deleteExpiredRefreshTokens();
+      this.logger.log(`Deleted ${deleted} expired tokens`);
+    } catch (error) {
+      this.logger.error('Failed: deleteExpiredTokens', error.stack);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_WEEK)
+  async deleteOldNotifications(): Promise<void> {
+    this.logger.log('Running: deleteOldNotifications');
+    try {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 90);
+      const deleted = await this.notificationDb.deleteOlderThan(cutoff);
+      this.logger.log(`Deleted ${deleted} old notifications`);
+    } catch (error) {
+      this.logger.error('Failed: deleteOldNotifications', error.stack);
+    }
+  }
+
+  @Cron('0 8 * * 1') // Every Monday at 8am
+  async sendWeeklyDigest(): Promise<void> {
+    this.logger.log('Running: sendWeeklyDigest');
+    // enqueue email jobs for all subscribed users
+  }
+}
+```
+
+---
+
+## Common Cron Expressions
+
+```ts
+CronExpression.EVERY_MINUTE
+CronExpression.EVERY_5_MINUTES
+CronExpression.EVERY_HOUR
+CronExpression.EVERY_DAY_AT_MIDNIGHT   // '0 0 * * *'
+CronExpression.EVERY_DAY_AT_NOON       // '0 12 * * *'
+CronExpression.EVERY_WEEK              // '0 0 * * 0'
+CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT
+
+// Custom cron syntax: second minute hour day month weekday
+'0 8 * * 1'    // Every Monday at 8:00am
+'0 0 1 * *'    // First of every month at midnight
+```
+
+---
+
+## Rules
+
+- Cron tasks live in `src/modules/scheduler/tasks/` — never inline in services
+- Every cron method must log start and completion with results
+- Every cron method must wrap in `try/catch` and log errors — never let cron silently fail
+- Cron tasks must be idempotent — safe to run multiple times without side effects
+- For distributed deployment, use a lock (Redis) to prevent duplicate cron execution
+- Heavy jobs (reports, bulk emails) should enqueue queue jobs — not do the work directly
+- Never do unbounded queries inside cron (paginate or batch)
+
+---
+
+## Distributed Locking (Multi-Instance)
+
+```ts
+@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+async cleanupExpiredSessions(): Promise<void> {
+  const lock = await this.redis.set('cron:cleanup', '1', 'EX', 3600, 'NX');
+  if (!lock) {
+    this.logger.debug('Cron skipped (another instance running)');
+    return;
+  }
+  try {
+    // do work
+  } finally {
+    await this.redis.del('cron:cleanup');
+  }
+}
+```
+
+---
+
+## Forbidden
+
+❌ Cron methods without `try/catch`
+❌ Unbounded database queries inside cron (no pagination/batching)
+❌ Heavy synchronous work directly in cron (enqueue instead)
+❌ Cron tasks inside domain modules (keep in scheduler module)
+❌ Missing start/completion logs
+❌ Non-idempotent cron tasks
+❌ Multiple instances running the same cron simultaneously without a lock

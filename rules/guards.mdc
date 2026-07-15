@@ -1,0 +1,145 @@
+---
+alwaysApply: true
+---
+
+# Guards Rules
+
+## Responsibility
+
+Guards determine whether a request is allowed to proceed.
+
+Responsible for:
+- JWT token validation
+- Role-based access control
+- Ownership verification
+- Feature flag gating
+
+Not responsible for:
+- Business logic
+- Database mutations
+- Response formatting
+
+---
+
+## JWT Auth Guard
+
+```ts
+import { Injectable, ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
+
+@Injectable()
+export class JwtAuthGuard extends AuthGuard('jwt') {
+  handleRequest(err: any, user: any) {
+    if (err || !user) {
+      throw new UnauthorizedException('Invalid or missing token');
+    }
+    return user;
+  }
+}
+```
+
+---
+
+## Roles Guard
+
+```ts
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import { UserRole } from '../../user/types/user.types';
+
+@Injectable()
+export class RolesGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (!requiredRoles || requiredRoles.length === 0) return true;
+
+    const { user } = context.switchToHttp().getRequest();
+
+    if (!requiredRoles.includes(user?.role)) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+
+    return true;
+  }
+}
+```
+
+---
+
+## Usage on Controller
+
+```ts
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@Get()
+findAll() { ... }
+```
+
+---
+
+## Ownership Guard (Example)
+
+```ts
+@Injectable()
+export class ResourceOwnerGuard implements CanActivate {
+  constructor(private readonly userDb: UserDbService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const req = context.switchToHttp().getRequest();
+    const user = req.user;
+    const resourceId = req.params.id;
+
+    if (user.role === UserRole.SUPER_ADMIN) return true;
+
+    const resource = await this.userDb.findById(resourceId);
+    if (!resource || resource.userId !== user.id) {
+      throw new ForbiddenException('Access denied');
+    }
+
+    return true;
+  }
+}
+```
+
+---
+
+## Guard Application Order
+
+Always apply guards in this order:
+
+```ts
+@UseGuards(JwtAuthGuard, RolesGuard, ResourceOwnerGuard)
+```
+
+1. **JwtAuthGuard** — validates token, populates `req.user`
+2. **RolesGuard** — checks role from `req.user`
+3. **ResourceOwnerGuard** — checks resource ownership
+
+---
+
+## Rules
+
+- Always combine `JwtAuthGuard` and `RolesGuard` on authenticated routes
+- Guards must throw `UnauthorizedException` or `ForbiddenException` — never `ApiError`
+- Never put business logic inside guards
+- Guards can query the database for ownership checks only — never for business operations
+- Apply guards at the class level where all routes share the same protection
+- Override per-route with method-level decorators where needed
+
+---
+
+## Forbidden
+
+❌ Business logic inside guards
+❌ Returning false silently (always throw descriptive exception)
+❌ Database mutations inside guards
+❌ Calling services that have side effects
+❌ Missing `JwtAuthGuard` on any authenticated route

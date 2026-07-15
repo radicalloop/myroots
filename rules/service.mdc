@@ -1,0 +1,129 @@
+---
+alwaysApply: true
+---
+
+# Service Rules
+
+## Responsibility
+
+Services contain all business logic.
+
+Responsible for:
+- Business rules and validation
+- Orchestrating between Db Services and Helpers
+- Emitting events
+- Triggering notifications
+- Throwing `ApiError` for business failures
+
+Not responsible for:
+- Prisma queries (use Db Service / Repository)
+- HTTP concerns (use Controller)
+- Formatting responses (use Controller)
+
+---
+
+## Structure
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { UserDbService } from './user.db.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
+import { UserHelper } from './helpers/user.helper';
+import { ApiError } from '../../utils/ApiError';
+import { Logger } from '@nestjs/common';
+
+@Injectable()
+export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
+  constructor(
+    private readonly userDb: UserDbService,
+    private readonly userHelper: UserHelper,
+  ) {}
+
+  async findAll(query: QueryUserDto) {
+    return this.userDb.findAll(query);
+  }
+
+  async findOne(id: string) {
+    const user = await this.userDb.findById(id);
+    if (!user) throw new ApiError(404, 'User not found');
+    return user;
+  }
+
+  async create(dto: CreateUserDto) {
+    const existing = await this.userDb.findByEmail(dto.email);
+    if (existing) throw new ApiError(409, 'Email already in use');
+
+    const hashedPassword = await this.userHelper.hashPassword(dto.password);
+    const user = await this.userDb.create({ ...dto, password: hashedPassword });
+
+    this.logger.log(`User created: ${user.id}`);
+    return user;
+  }
+
+  async update(id: string, dto: UpdateUserDto) {
+    await this.findOne(id); // validates existence
+    return this.userDb.update(id, dto);
+  }
+
+  async delete(id: string) {
+    await this.findOne(id); // validates existence
+    await this.userDb.delete(id);
+  }
+}
+```
+
+---
+
+## Rules
+
+- Keep services under 250 lines — split into sub-services if needed
+- One service per module (business service + db service)
+- All business validations go in the service, not the controller
+- Always validate entity existence before update/delete
+- Always use `ApiError` — never throw `new Error()`
+- Use `Logger` from NestJS — never `console.log`
+- Never import or call Prisma directly in services
+- Helpers handle pure utility logic — call them from service
+
+---
+
+## Error Pattern
+
+```ts
+// ✅ Correct
+const user = await this.userDb.findById(id);
+if (!user) throw new ApiError(404, 'User not found');
+
+// ❌ Wrong
+if (!user) throw new Error('User not found');
+if (!user) return null;
+if (!user) return { success: false };
+```
+
+---
+
+## Splitting Large Services
+
+If a service exceeds 250 lines, extract sub-services:
+
+```
+user.service.ts              → orchestration
+user-auth.service.ts         → login/register/refresh
+user-profile.service.ts      → profile CRUD
+user-notification.service.ts → notification logic
+```
+
+---
+
+## Forbidden
+
+❌ Prisma queries directly in service
+❌ `console.log` in any service
+❌ `new Error()` — always use `ApiError`
+❌ HTTP-specific logic (status codes, headers)
+❌ Response formatting
+❌ Files over 250 lines
+❌ Duplicate logic across services

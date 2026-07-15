@@ -1,0 +1,128 @@
+---
+alwaysApply: true
+---
+
+# Roles & Permissions Rules
+
+## Role Definition
+
+Define all roles in a shared enum — never use raw strings:
+
+```ts
+// src/common/types/roles.types.ts
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+```
+
+---
+
+## Role Hierarchy
+
+```
+SUPER_ADMIN  → full access to everything
+ADMIN        → access to management features, limited destructive ops
+USER         → access to their own data only
+```
+
+Document role matrix per module — who can do what.
+
+---
+
+## Permission Decorator
+
+```ts
+// decorators/roles.decorator.ts
+export const ROLES_KEY = 'roles';
+export const Roles = (...roles: UserRole[]) => SetMetadata(ROLES_KEY, roles);
+```
+
+---
+
+## Applying Roles
+
+```ts
+// Class-level (all routes require ADMIN)
+@Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('admin/users')
+export class UserController {}
+
+// Override per route
+@Roles(UserRole.SUPER_ADMIN)
+@Delete(':id')
+deleteUser(@Param('id', ParseUUIDPipe) id: string) { ... }
+```
+
+---
+
+## Ownership Checks
+
+For user-owned resources, check ownership in the guard or service:
+
+```ts
+// In service
+async updateProfile(userId: string, requesterId: string, dto: UpdateProfileDto) {
+  if (userId !== requesterId) {
+    throw new ApiError(403, 'You can only update your own profile');
+  }
+  return this.userDb.update(userId, dto);
+}
+```
+
+---
+
+## Permission Constants
+
+```ts
+// src/common/constants/permissions.ts
+export const PERMISSIONS = {
+  USER_READ: 'user:read',
+  USER_WRITE: 'user:write',
+  USER_DELETE: 'user:delete',
+  ORDER_READ: 'order:read',
+  ORDER_WRITE: 'order:write',
+} as const;
+```
+
+---
+
+## Role-to-Permission Map
+
+```ts
+export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  [UserRole.SUPER_ADMIN]: Object.values(PERMISSIONS),
+  [UserRole.ADMIN]: [
+    PERMISSIONS.USER_READ,
+    PERMISSIONS.USER_WRITE,
+    PERMISSIONS.ORDER_READ,
+    PERMISSIONS.ORDER_WRITE,
+  ],
+  [UserRole.USER]: [
+    PERMISSIONS.ORDER_READ,
+  ],
+};
+```
+
+---
+
+## Rules
+
+- Role checks always happen in guards — never in services
+- Ownership checks can happen in services for business logic
+- Never hardcode role strings — always use enum values
+- SUPER_ADMIN bypasses ownership checks
+- Every new route must have explicit role decorator or be explicitly marked `@Public()`
+- Roles go on the most restrictive layer (method > class)
+
+---
+
+## Forbidden
+
+❌ Role checks hardcoded as strings (`role === 'admin'`)
+❌ Role logic inside services (use guards)
+❌ Routes without any guard or `@Public()` decorator
+❌ Duplicating role enums across modules
+❌ Missing role decorator on new admin routes

@@ -1,0 +1,153 @@
+---
+alwaysApply: true
+---
+
+# Architecture Rules
+
+## Monorepo Structure
+
+```
+/
+├── backend/        NestJS + Prisma + PostgreSQL
+├── frontend/       React web app
+```
+
+Never mix concerns across apps. Each app is fully isolated.
+
+---
+
+## Backend Architecture: Layered Module Pattern
+
+Every feature is a NestJS module. Follow the standard structure below.
+
+**Auth exception (current repo):** `auth/` keeps Prisma queries in `auth.db.service.ts` only — no `repository/` folder. Use this pattern when the db layer has no caching/extra coordination and would otherwise be a pass-through wrapper.
+
+```
+<module>/
+├── dto/
+│   ├── create-<module>.dto.ts
+│   ├── update-<module>.dto.ts
+│   └── query-<module>.dto.ts
+├── guards/
+│   └── <specific>.guard.ts
+├── helpers/
+│   └── <module>.helper.ts
+├── repository/                    ← optional; skip when db.service owns Prisma (see auth/)
+│   └── <module>.repository.ts
+├── swagger/
+│   └── <module>.swagger.ts
+├── types/
+│   └── <module>.types.ts
+├── <module>.controller.ts
+├── <module>.service.ts
+├── <module>.db.service.ts
+└── <module>.module.ts
+```
+
+**Slim sub-modules** (e.g. `auth-db.module.ts`) may export a single db service. Other modules must **not** import the full parent module just to get that service.
+
+---
+
+## Module Dependencies (NestJS)
+
+When module A needs a service from module B:
+
+✅ Register the **specific service classes** (and only their direct dependencies) in `providers`
+
+```ts
+// email.module.ts — needs AuthDbService only
+@Module({
+  providers: [
+    EmailService,
+    EmailVerificationService,
+    AuthDbService, // + any deps AuthDbService needs (e.g. PrismaService is global)
+  ],
+})
+export class EmailModule {}
+```
+
+❌ Do **not** import the full feature module
+
+```ts
+// ❌ pulls controllers, JWT, passport, unrelated providers
+imports: [forwardRef(() => AuthModule)]
+```
+
+❌ Do **not** use `forwardRef(() => OtherModule)` to fix circular imports — register the needed services in `providers` instead
+
+❌ Do **not** re-register a service in `providers` without its dependencies (e.g. `AuthService` with no import)
+
+**Reference wiring in this repo:**
+- `EmailModule` → `AuthDbService` in `providers` (not `AuthModule`, not `AuthDbModule` import)
+- `AuthModule` → email services (`EmailService`, `EmailVerificationService`, etc.) in `providers` (not `EmailModule` import)
+- `AuthModule` → `AuthDbModule` import only for its own auth layer (controllers + JWT stay in `AuthModule`)
+
+---
+
+## Layer Flow
+
+```
+Request → Controller → Service → Db Service → [Repository] → Prisma → DB
+```
+
+`Repository` is optional. When `db.service` owns Prisma directly (auth pattern), skip the repository layer.
+
+Each layer has one responsibility. Never skip controller → service.
+
+---
+
+## Layer Contracts
+
+| Layer       | Allowed to call    | Forbidden from calling         |
+|-------------|--------------------|-------------------------------|
+| Controller  | Service            | Repository, Prisma, Db Service |
+| Service     | Db Service, Helper | Repository, Prisma             |
+| Db Service  | Prisma, Repository | Services, business logic       |
+| Repository  | Prisma only        | Services, other Repositories   |
+| Helper      | Nothing (pure)     | Database, Services             |
+
+When there is no `repository/` file, **Db Service** is where Prisma queries live (see `auth/auth.db.service.ts`).
+
+---
+
+## Frontend Architecture
+
+```
+Component (UI only)
+   ↓
+Custom Hook (data + logic)
+   ↓
+API Function (Axios call)
+   ↓
+TanStack Query (caching + state)
+```
+
+Never skip this flow. Never call APIs inside components.
+
+---
+
+## Principles
+
+- Single Responsibility — every file does one thing
+- Dependency Injection — never instantiate services manually
+- Composition over Inheritance
+- Fail Fast — validate at the edge, early returns everywhere
+- No magic — all behaviour must be explicit and traceable
+- No circular dependencies — ever (use direct `providers` registration, not `forwardRef` between feature modules)
+- 250 line file limit — hard cap, no exceptions
+
+---
+
+## Forbidden Globally
+
+❌ Business logic in controllers
+❌ Database queries outside repositories
+❌ Importing a full feature module when only 1–2 services are needed
+❌ `forwardRef(() => FeatureModule)` between auth/email/user modules
+❌ Registering a service in `providers` without importing/registering its dependencies
+❌ Files exceeding 250 lines
+❌ Shared mutable state across modules
+❌ Returning raw Prisma entities from controllers
+❌ `any` type
+❌ Hardcoded secrets or environment values
+❌ `console.log` in committed code

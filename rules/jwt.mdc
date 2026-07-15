@@ -1,0 +1,132 @@
+---
+alwaysApply: true
+---
+
+# JWT Rules
+
+## Token Configuration
+
+```ts
+// config/jwt.config.ts
+export default () => ({
+  jwt: {
+    secret: process.env.JWT_SECRET,
+    expiresIn: '15m',
+    refreshSecret: process.env.JWT_REFRESH_SECRET,
+    refreshExpiresIn: '7d',
+  },
+});
+```
+
+Register in `JwtModule`:
+
+```ts
+JwtModule.registerAsync({
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    secret: config.get<string>('jwt.secret'),
+    signOptions: { expiresIn: config.get<string>('jwt.expiresIn') },
+  }),
+  inject: [ConfigService],
+}),
+```
+
+---
+
+## Generating Tokens
+
+```ts
+async generateTokens(payload: JwtPayload): Promise<AuthTokens> {
+  const [accessToken, refreshToken] = await Promise.all([
+    this.jwtService.signAsync(payload, {
+      secret: this.config.get('jwt.secret'),
+      expiresIn: this.config.get('jwt.expiresIn'),
+    }),
+    this.jwtService.signAsync(payload, {
+      secret: this.config.get('jwt.refreshSecret'),
+      expiresIn: this.config.get('jwt.refreshExpiresIn'),
+    }),
+  ]);
+
+  return { accessToken, refreshToken };
+}
+```
+
+---
+
+## Verifying Tokens
+
+```ts
+async verifyRefreshToken(token: string): Promise<JwtPayload> {
+  try {
+    return await this.jwtService.verifyAsync(token, {
+      secret: this.config.get('jwt.refreshSecret'),
+    });
+  } catch {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+}
+```
+
+---
+
+## JWT Payload Shape
+
+```ts
+export interface JwtPayload {
+  sub: string;       // User ID (always 'sub' per JWT spec)
+  email: string;
+  role: UserRole;
+}
+```
+
+Keep payload minimal — never include sensitive data in JWT.
+
+---
+
+## Refresh Token Storage
+
+```ts
+// Store hashed refresh token in DB
+const hashedToken = await bcrypt.hash(refreshToken, 10);
+await this.userDb.updateRefreshToken(userId, hashedToken);
+
+// Verify by comparing
+const isValid = await bcrypt.compare(incomingToken, storedHash);
+if (!isValid) throw new ApiError(401, 'Refresh token mismatch');
+```
+
+---
+
+## Rules
+
+- Use two separate secrets: `JWT_SECRET` and `JWT_REFRESH_SECRET`
+- Access token TTL: 15 minutes
+- Refresh token TTL: 7 days (or less for high-security apps)
+- Always sign with `signAsync` — never sync `sign()`
+- Always verify with `verifyAsync` — never sync `verify()`
+- Never decode a token without verifying its signature
+- Never put passwords, full user objects, or PII in JWT payload
+- Secrets must be at least 64 random characters in production
+
+---
+
+## Environment Variables Required
+
+```env
+JWT_SECRET=<minimum-64-char-random-string>
+JWT_REFRESH_SECRET=<different-minimum-64-char-random-string>
+```
+
+---
+
+## Forbidden
+
+❌ Single JWT secret for both access and refresh tokens
+❌ Synchronous `jwt.sign()` or `jwt.verify()`
+❌ `ignoreExpiration: true`
+❌ Passwords, PII, or role details beyond what's needed in payload
+❌ Hardcoded secrets
+❌ Access tokens stored in database
+❌ Short refresh token TTL that forces constant re-login (< 1 day)
+❌ Long access token TTL (> 30 minutes)

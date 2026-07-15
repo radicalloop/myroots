@@ -1,0 +1,146 @@
+---
+alwaysApply: true
+---
+
+# Repository Rules
+
+## Responsibility
+
+Repositories hold Prisma queries for modules that use a separate data access file.
+
+**When to skip `repository/`:** If `<module>.db.service.ts` would only delegate every method to a repository with no caching, error mapping, or query building, put Prisma in `db.service` instead. **Reference:** `backend/src/auth/auth.db.service.ts` (no `auth.repository.ts`).
+
+Responsible for:
+- All Prisma queries
+- Raw database access
+- Pagination queries
+- Aggregate queries
+
+Not responsible for:
+- Business logic
+- Error throwing
+- Data validation
+- Caching (handled in Db Service)
+
+---
+
+## Structure
+
+```ts
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../../prisma/prisma.service';
+import { CreateUserDto } from '../dto/create-user.dto';
+import { QueryUserDto } from '../dto/query-user.dto';
+import { Prisma } from '@prisma/client';
+
+@Injectable()
+export class UserRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findById(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+      },
+    });
+  }
+
+  async findByEmail(email: string) {
+    return this.prisma.user.findUnique({
+      where: { email },
+    });
+  }
+
+  async findAll(query: QueryUserDto) {
+    const { page = 1, limit = 20, search, sortOrder = 'desc' } = query;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.UserWhereInput = search
+      ? {
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { email: { contains: search, mode: 'insensitive' } },
+          ],
+        }
+      : {};
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: sortOrder },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          createdAt: true,
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
+  async create(data: Prisma.UserCreateInput) {
+    return this.prisma.user.create({ data });
+  }
+
+  async update(id: string, data: Prisma.UserUpdateInput) {
+    return this.prisma.user.update({ where: { id }, data });
+  }
+
+  async delete(id: string) {
+    return this.prisma.user.delete({ where: { id } });
+  }
+}
+```
+
+---
+
+## Rules
+
+- Always use `select` — never return full Prisma entity unless explicitly required
+- Always exclude `password`, tokens, and sensitive fields from selects
+- Use `$transaction` for queries that must be atomic
+- Use `Promise.all` for independent parallel queries
+- Never query inside loops — use batch / include / joins
+- Repositories never throw `ApiError` — return `null` for not-found, let service handle it
+- Repositories never contain `if` business logic
+
+---
+
+## Naming Conventions
+
+```ts
+findById(id: string)
+findByEmail(email: string)
+findAll(query: QueryDto)
+findByIdWithRelations(id: string)
+create(data: CreateDto)
+update(id: string, data: UpdateDto)
+delete(id: string)
+softDelete(id: string)
+count(where: WhereInput)
+exists(where: WhereInput): Promise<boolean>
+```
+
+---
+
+## Forbidden
+
+❌ Business logic inside repository
+❌ Throwing `ApiError` from repository
+❌ Pass-through repository that mirrors db.service 1:1 — merge into db.service instead
+❌ Returning raw entities with passwords or tokens
+❌ Prisma queries in services, controllers, or helpers
+❌ Loops that trigger individual queries (N+1)
+❌ Untyped Prisma inputs — always use `Prisma.*Input` types
+❌ `findMany` without pagination on large tables

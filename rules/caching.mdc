@@ -1,0 +1,169 @@
+---
+alwaysApply: true
+---
+
+# Caching Rules
+
+## Stack
+
+- Backend cache: Redis (via `@nestjs/cache-manager` + `cache-manager-redis-store`)
+- Frontend cache: TanStack Query (in-memory, with configurable staleTime)
+
+---
+
+## Backend: Redis Setup
+
+```ts
+// app.module.ts
+CacheModule.registerAsync({
+  isGlobal: true,
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    store: redisStore,
+    host: config.get('REDIS_HOST'),
+    port: config.get('REDIS_PORT'),
+    ttl: 300, // default 5 minutes
+  }),
+  inject: [ConfigService],
+}),
+```
+
+---
+
+## Cache Keys
+
+Always use structured, namespaced cache keys:
+
+```ts
+// src/common/constants/cache-keys.ts
+export const CACHE_KEYS = {
+  USER: (id: string) => `user:${id}`,
+  USER_LIST: (query: string) => `users:list:${query}`,
+  PRODUCT: (id: string) => `product:${id}`,
+  PRODUCT_LIST: 'products:list',
+  SETTINGS: 'app:settings',
+} as const;
+```
+
+---
+
+## Db Service: Cache-Aside Pattern
+
+Cache logic belongs in `<module>.db.service.ts` — not in the repository or service:
+
+```ts
+@Injectable()
+export class UserDbService {
+  constructor(
+    private readonly userRepo: UserRepository,
+    @Inject(CACHE_MANAGER) private readonly cache: Cache,
+  ) {}
+
+  async findById(id: string) {
+    const cacheKey = CACHE_KEYS.USER(id);
+
+    const cached = await this.cache.get<UserResponse>(cacheKey);
+    if (cached) return cached;
+
+    const user = await this.userRepo.findById(id);
+    if (user) await this.cache.set(cacheKey, user, 300); // 5 min TTL
+
+    return user;
+  }
+
+  async update(id: string, data: UpdateUserDto) {
+    const user = await this.userRepo.update(id, data);
+    await this.cache.del(CACHE_KEYS.USER(id)); // invalidate on update
+    return user;
+  }
+
+  async delete(id: string) {
+    await this.userRepo.delete(id);
+    await this.cache.del(CACHE_KEYS.USER(id));
+  }
+}
+```
+
+---
+
+## TTL Guidelines
+
+| Data Type               | TTL         |
+|-------------------------|-------------|
+| User profile            | 5 minutes   |
+| Product details         | 10 minutes  |
+| Category list           | 30 minutes  |
+| App settings / config   | 60 minutes  |
+| Auth user session       | Do not cache|
+| Paginated list          | 1-2 minutes |
+
+---
+
+## Cache Invalidation
+
+Always invalidate cache on write operations:
+
+```ts
+// On create → invalidate list cache
+await this.cache.del(CACHE_KEYS.PRODUCT_LIST);
+
+// On update → invalidate individual item cache
+await this.cache.del(CACHE_KEYS.PRODUCT(id));
+
+// On delete → invalidate both
+await Promise.all([
+  this.cache.del(CACHE_KEYS.PRODUCT(id)),
+  this.cache.del(CACHE_KEYS.PRODUCT_LIST),
+]);
+```
+
+---
+
+## Frontend: TanStack Query Cache
+
+```ts
+// Default staleTime per data type
+const useUser = (id: string) =>
+  useQuery({
+    queryKey: QUERY_KEYS.USER(id),
+    queryFn: () => getUser(id),
+    staleTime: 1000 * 60 * 5,  // 5 minutes
+  });
+
+const useProductList = () =>
+  useQuery({
+    queryKey: QUERY_KEYS.PRODUCTS,
+    queryFn: getProducts,
+    staleTime: 1000 * 60 * 2,  // 2 minutes
+  });
+```
+
+Invalidate after mutations:
+```ts
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+}
+```
+
+---
+
+## Rules
+
+- Cache logic lives in Db Service — not in repositories or business services
+- Always use namespaced cache keys — never raw strings
+- Always invalidate cache on update and delete
+- Never cache auth tokens or user session data
+- Set appropriate TTL — never cache indefinitely without TTL
+- Cache reads should never block the main flow — fail gracefully
+
+---
+
+## Forbidden
+
+❌ Caching inside repositories
+❌ Caching inside business services
+❌ Raw string cache keys (no namespace)
+❌ Missing cache invalidation on writes
+❌ Caching sensitive auth/token data in Redis
+❌ Infinite TTL caching (`ttl: 0` meaning no expiry)
+❌ Frontend fetching same data without staleTime configured

@@ -1,0 +1,1035 @@
+---
+alwaysApply: true
+---
+
+## alwaysApply: true
+
+# Frontend Development Rules
+
+## General Principles
+
+* Write clean, maintainable, and optimized code.
+* Prefer composition over duplication.
+* Keep components small and reusable.
+* A single component file should not exceed **250 lines**.
+* Extract complex logic into hooks, utilities, or child components.
+* Avoid unnecessary re-renders.
+* Follow SOLID principles.
+* Prioritize readability over clever code.
+
+---
+
+# TypeScript Rules
+
+* Use TypeScript everywhere.
+* Define explicit types for props, API responses, hooks, and utilities.
+* Never use `any`.
+* Prefer interfaces for objects and types for unions.
+* Use enums only when necessary.
+* Enable strict typing.
+* Use generics when applicable.
+* Avoid type assertions unless absolutely necessary.
+
+✅
+
+```ts
+interface User {
+  id: string;
+  name: string;
+}
+```
+
+❌
+
+```ts
+const user: any = {};
+```
+
+---
+
+# API Layer
+
+## HTTP Client
+
+Always use:
+
+* Axios
+
+Never use:
+
+* fetch()
+* XMLHttpRequest
+
+Location:
+
+```txt
+src/lib/axios.ts
+```
+
+Create:
+
+* axios instance
+* request interceptors
+* response interceptors
+* auth token handling
+
+---
+
+# Server State
+
+Always use:
+
+* TanStack Query
+
+Never call APIs directly inside components.
+
+Structure:
+
+```txt
+api/
+hooks/
+services/
+```
+
+Example:
+
+```txt
+users/
+├── user.api.ts
+├── user.query.ts
+├── user.types.ts
+```
+
+Use:
+
+* useQuery
+* useMutation
+* query invalidation
+* query keys
+
+---
+
+# Styling
+
+Always use:
+
+* TailwindCSS
+* shadcn/ui
+
+Prefer:
+
+* utility classes
+* reusable components
+
+Avoid:
+
+* inline styles
+* CSS files unless required
+
+---
+
+# Notifications
+
+Always use toast notifications.
+
+For:
+
+* success messages
+* error messages
+* warnings
+
+Never use:
+
+```ts
+alert()
+```
+
+Use:
+
+```ts
+toast.success()
+toast.error()
+```
+
+---
+
+# Utility Functions
+
+Shared functions belong inside:
+
+```txt
+src/utils
+```
+
+Examples:
+
+* formatDate()
+* formatCurrency()
+* debounce()
+* slugify()
+
+Never duplicate utility logic.
+
+---
+
+# Constants
+
+Store constants inside:
+
+```txt
+src/constants
+```
+
+Examples:
+
+```ts
+ROUTES
+QUERY_KEYS
+APP_CONFIG
+REGEX
+LOCAL_STORAGE_KEYS
+```
+
+Never hardcode values throughout the application.
+
+---
+
+# Reusable Components
+
+Shared components belong inside:
+
+```txt
+src/components
+```
+
+Examples:
+
+* Button
+* Input
+* Modal
+* Table
+* Pagination
+* Loader
+* EmptyState
+
+Always prefer reusable components.
+
+Avoid duplication.
+
+---
+
+# Mock Components
+
+Before implementing a feature:
+
+1. Create UI mock components.
+2. Build layout first.
+3. Integrate API afterward.
+
+Use:
+
+* Skeleton loaders
+* Mock data
+
+---
+
+# Custom Hooks
+
+Move business logic into hooks.
+
+Location:
+
+```txt
+src/hooks
+```
+
+Examples:
+
+```txt
+useAuth
+usePagination
+useDebounce
+useUsers
+```
+
+Keep UI components simple.
+
+---
+
+# File Naming Conventions
+
+Components:
+
+```txt
+UserCard.tsx
+ProfileModal.tsx
+```
+
+Hooks:
+
+```txt
+useUsers.ts
+useAuth.ts
+```
+
+Utilities:
+
+```txt
+formatDate.ts
+truncateText.ts
+```
+
+Types:
+
+```txt
+user.types.ts
+auth.types.ts
+```
+
+API:
+
+```txt
+user.api.ts
+post.api.ts
+```
+
+Queries:
+
+```txt
+user.query.ts
+auth.query.ts
+```
+
+Constants:
+
+```txt
+queryKeys.ts
+routes.ts
+```
+
+Use:
+
+* PascalCase for components.
+* camelCase for functions.
+* kebab-case for folders.
+* UPPER_CASE for constants.
+
+---
+
+# Folder Structure
+
+```txt
+src/
+├── app
+├── pages
+├── components
+├── hooks
+├── api
+├── services
+├── types
+├── constants
+├── utils
+├── lib
+├── store
+├── assets
+├── layouts
+├── providers
+└── styles
+```
+
+---
+
+# State Management
+
+Prefer:
+
+1. TanStack Query for server state.
+2. Context for small global states.
+3. Zustand for complex client state.
+
+Avoid unnecessary Redux.
+
+---
+
+# Performance
+
+Use:
+
+* React.memo()
+* useMemo()
+* useCallback()
+* lazy()
+* Suspense()
+
+Paginate large lists.
+
+Avoid:
+
+* unnecessary state
+* deeply nested components
+* repeated API calls
+
+---
+
+# Forms
+
+Use:
+
+* React Hook Form
+* Zod validation
+
+Never use uncontrolled forms for complex pages.
+
+---
+
+# Error Handling
+
+Show user-friendly errors.
+
+Always:
+
+```ts
+toast.error(error.message);
+```
+
+Handle:
+
+* network errors
+* API errors
+* validation errors
+
+---
+
+# Loading States
+
+Always provide:
+
+* Skeleton loaders
+* Empty states
+* Error states
+
+Avoid blank screens.
+
+---
+
+# Accessibility
+
+Use:
+
+* semantic HTML
+* labels
+* aria attributes
+
+Support:
+
+* keyboard navigation
+* screen readers
+
+---
+
+# Imports
+
+Prefer absolute imports:
+
+```ts
+@/components
+@/hooks
+@/utils
+@/constants
+```
+
+Avoid deep relative imports.
+
+❌
+
+```ts
+../../../components
+```
+
+---
+
+# Code Quality
+
+* Remove dead code.
+* Remove console.log before completion.
+* Keep files focused.
+* Avoid duplicate logic.
+* Write self-explanatory code.
+* Prefer early returns.
+* Avoid nested conditionals.
+* Keep functions small.
+* Single responsibility per component.
+
+---
+
+# Forbidden
+
+❌ any
+
+❌ fetch()
+
+❌ alert()
+
+❌ inline styles
+
+❌ duplicate components
+
+❌ component files larger than 250 lines
+
+❌ API calls directly inside JSX
+
+❌ hardcoded strings everywhere
+
+❌ deeply nested components
+
+❌ unnecessary useEffect
+
+❌ business logic inside UI components
+
+❌ repeated code
+
+---
+
+# Preferred Stack
+
+* TypeScript
+* React
+* Axios
+* TanStack Query
+* TailwindCSS
+* shadcn/ui
+* Lodash
+* Sonner Toast
+* Zustand
+* React Router
+# Forms
+
+Always use:
+
+* Formik
+* Yup validation
+
+Never manually manage complex form state with `useState`.
+
+Keep validation schemas separate from components.
+
+Structure:
+
+```txt
+forms/
+schemas/
+```
+
+Example:
+
+```txt
+auth/
+├── LoginForm.tsx
+├── RegisterForm.tsx
+└── auth.schema.ts
+```
+
+Example:
+
+```ts
+const validationSchema = Yup.object({
+  email: Yup.string()
+    .email('Invalid email')
+    .required('Email is required'),
+
+  password: Yup.string()
+    .min(8, 'Minimum 8 characters')
+    .required('Password is required'),
+});
+```
+
+Rules:
+
+* Always validate forms with Yup.
+* Keep validation schemas outside components.
+* Use reusable form components.
+* Show field-level validation errors.
+* Disable submit button while submitting.
+* Show success and error toast messages.
+* Never duplicate validation logic.
+* Use proper TypeScript interfaces for form values.
+
+---
+
+# Preferred Stack
+
+### Core
+
+* TypeScript
+* React
+* React Router
+
+### API
+
+* Axios
+* TanStack Query
+
+### Styling
+
+* TailwindCSS
+* shadcn/ui
+
+### Forms
+
+* Formik
+* Yup
+
+### Utilities
+
+* Lodash
+
+### Notifications
+
+* Sonner Toast
+
+
+
+
+### Quality
+
+* ESLint
+* Prettier
+* Husky
+* lint-staged
+
+### Miscellaneous
+
+* Dayjs
+* clsx
+* class-variance-authority
+
+
+# Providers
+
+Use providers for globally shared data.
+
+Examples:
+
+* UserProvider
+* AuthProvider
+* ThemeProvider
+* SubscriptionProvider
+* PermissionProvider
+
+Location:
+
+```txt
+src/providers
+```
+
+Example:
+
+```txt
+providers/
+├── UserProvider.tsx
+├── AuthProvider.tsx
+├── ThemeProvider.tsx
+```
+
+Expose custom hooks:
+
+```ts
+useUser()
+useAuth()
+useSubscription()
+```
+
+Never access context directly.
+
+Always create custom hooks.
+
+---
+
+# API Functions
+
+Keep API functions simple.
+
+Location:
+
+```txt
+src/api
+```
+
+Example:
+
+```ts
+export const login = (data: LoginPayload) =>
+  api.post("/admin/auth/login", data);
+
+export const forgotPassword = (data: ForgotPasswordPayload) =>
+  api.post("/admin/auth/password/email", data);
+
+export const getStatistics = () =>
+  api.get("/admin/dashboard");
+```
+
+Rules:
+
+* API files should only contain axios calls.
+* No business logic.
+* No toast notifications.
+* No data transformations.
+* Always define request and response types.
+
+Folder structure:
+
+```txt
+api/
+├── auth.api.ts
+├── user.api.ts
+├── dashboard.api.ts
+```
+
+---
+
+# Query Hooks
+
+Always wrap API calls inside custom hooks.
+
+Location:
+
+```txt
+src/hooks/api
+```
+
+Examples:
+
+```ts
+useUser()
+useProducts()
+useDashboard()
+useOrders()
+```
+
+Example:
+
+```ts
+const useUsers = () => {
+  return useQuery({
+    queryKey: ["users"],
+    queryFn: getUsers,
+    select: (response) => response.data.data,
+  });
+};
+```
+
+Components should never call APIs directly.
+
+Use:
+
+* select
+* enabled
+* staleTime
+* invalidateQueries
+
+Keep query logic inside hooks.
+
+---
+
+# Form Hooks
+
+Complex forms should have dedicated hooks.
+
+Location:
+
+```txt
+hooks/forms
+```
+
+Example:
+
+```txt
+hooks/forms/
+├── useLoginForm.ts
+├── useRegisterForm.ts
+├── useAddOfferForm.ts
+```
+
+Example:
+
+```ts
+const useLoginForm = () =>
+  useFormik({
+    initialValues,
+    validationSchema: loginSchema,
+    onSubmit,
+  });
+```
+
+Rules:
+
+* Keep form logic outside components.
+* Components should only render UI.
+* Reuse form hooks across pages.
+
+---
+
+# Validation
+
+Use Yup for all validations.
+
+Location:
+
+```txt
+src/validations
+```
+
+Example:
+
+```txt
+validations/
+├── auth.validation.ts
+├── user.validation.ts
+├── product.validation.ts
+```
+
+Rules:
+
+* Keep schemas outside components.
+* Reuse validation schemas.
+* Store regex patterns in constants.
+* Use meaningful error messages.
+
+Never write schemas inside JSX files.
+
+---
+
+# Component Structure
+
+Pages should look like:
+
+```txt
+pages/
+    UsersPage.tsx
+
+hooks/
+    useUsers.ts
+
+api/
+    user.api.ts
+
+validations/
+    user.validation.ts
+
+components/
+    UserTable.tsx
+    UserCard.tsx
+```
+
+Business logic should live inside:
+
+* hooks
+* providers
+* utils
+
+UI files should focus on rendering.
+
+---
+
+# Folder Structure
+
+```txt
+src/
+├── api
+├── assets
+├── components
+├── constants
+├── hooks
+│   ├── api
+│   ├── forms
+│   └── common
+├── layouts
+├── pages
+├── providers
+├── routes
+├── store
+├── types
+├── utils
+├── validations
+├── lib
+└── styles
+```
+
+---
+
+# Query Keys
+
+Create centralized query keys.
+
+Location:
+
+```txt
+constants/queryKeys.ts
+```
+
+Example:
+
+```ts
+export const QUERY_KEYS = {
+  USER: ["user"],
+  PRODUCTS: ["products"],
+  ORDERS: ["orders"],
+};
+```
+
+Never hardcode query keys.
+
+---
+
+# Mutation Hooks
+
+Use custom mutation hooks.
+
+Example:
+
+```ts
+useCreateUser()
+useUpdateUser()
+useDeleteProduct()
+```
+
+Handle:
+
+* success toast
+* error toast
+* cache invalidation
+
+inside hooks, not components.
+
+---
+
+# Loading States
+
+Always support:
+
+* isLoading
+* isFetching
+* isPending
+* Skeleton components
+
+Avoid blank screens.
+
+---
+
+# Select Data
+
+Prefer:
+
+```ts
+select: (response) => response.data.data
+```
+
+instead of:
+
+```ts
+response?.data?.data
+```
+
+everywhere in components.
+
+---
+
+# Utilities
+
+Move common logic into utils.
+
+Examples:
+
+```txt
+formatDate.ts
+formatPrice.ts
+truncate.ts
+downloadFile.ts
+copyToClipboard.ts
+```
+
+Never duplicate utility functions.
+
+---
+
+# Constants
+
+Location:
+
+```txt
+constants/
+```
+
+Examples:
+
+```txt
+routes.ts
+queryKeys.ts
+regex.ts
+localStorage.ts
+roles.ts
+permissions.ts
+status.ts
+messages.ts
+```
+
+Never hardcode:
+
+* routes
+* roles
+* status values
+* regex patterns
+
+---
+
+# Forbidden
+
+❌ any
+
+❌ fetch()
+
+❌ API calls inside components
+
+❌ useFormik inside page components
+
+❌ Yup schemas inside components
+
+❌ Business logic inside JSX
+
+❌ Components larger than 250 lines
+
+❌ Duplicate utility functions
+
+❌ Hardcoded query keys
+
+❌ Direct context access
+
+❌ Massive page components
+
+❌ Nested ternary operators
+
+❌ Repeated API response parsing
+
+---
+
+# Preferred Stack
+
+* TypeScript
+* React
+* React Router
+* Axios
+* TanStack Query
+* Formik
+* Yup
+* Lodash
+* TailwindCSS
+* shadcn/ui
+* Sonner Toast
+* Zustand
+* Dayjs
+* class-variance-authority
+* clsx
+* ESLint
+* Prettier
+* Husky
+* lint-staged

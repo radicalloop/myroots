@@ -1,0 +1,358 @@
+---
+
+## alwaysApply: true
+
+# Backend Architecture Rules
+
+## Module Structure
+
+All modules must follow the exact same folder and file structure.
+
+Example:
+
+```txt
+user/
+├── dto/
+│   ├── create-user.dto.ts
+│   ├── update-user.dto.ts
+│   └── query-user.dto.ts
+├── guards/
+│   ├── jwt-auth.guard.ts
+│   ├── roles.guard.ts
+├── helpers/
+│   ├── helper.ts
+│   └── transform.helper.ts
+├── repository/
+│   └── user.repository.ts
+├── strategy/
+│   └── jwt.strategy.ts
+├── swagger/
+│   └── user.swagger.ts
+├── types/
+│   └── user.types.ts
+├── user.controller.ts
+├── user.db.service.ts
+├── user.service.ts
+├── user.module.ts
+└── guest-user-conversion.service.ts
+```
+
+Every module must follow the same pattern.
+
+Examples:
+
+```txt
+auth/
+product/
+category/
+order/
+payment/
+notification/
+wishlist/
+cart/
+review/
+```
+
+Never invent custom structures per module.
+
+**Repository folder is optional.** If `<module>.db.service.ts` contains Prisma queries directly (no caching/coordination layer), do not add a pass-through `repository/` file. Follow `auth/auth.db.service.ts` as the reference.
+
+---
+
+# Module Dependencies (NestJS)
+
+Do **not** import a full module when you only need specific services.
+
+✅ Add the service classes (+ their direct dependencies) to `providers`:
+
+```ts
+@Module({
+  providers: [
+    EmailVerificationService,
+    EmailDbService,
+    EmailService,
+    SmtpMailerHelper,
+    EmailVerificationRepository,
+    AuthDbService,
+  ],
+})
+export class EmailModule {}
+```
+
+❌ Avoid:
+
+```ts
+imports: [AuthModule]           // full module — controllers, JWT, etc.
+imports: [forwardRef(() => AuthModule)]
+providers: [AuthService]        // missing import/dependency chain
+```
+
+`PrismaService` is global — do not import `PrismaModule` just to satisfy db services.
+
+**This repo:**
+- `email.module.ts` — `AuthDbService` in `providers`, no `AuthModule` import
+- `auth.module.ts` — email services in `providers`, no `EmailModule` import; `AuthDbModule` only for auth's own db layer
+
+---
+
+# Layer Responsibilities
+
+### Controller
+
+Responsible for:
+
+* Request handling
+* Route decorators
+* Guards
+* Swagger decorators
+
+Never put business logic inside controllers.
+
+---
+
+### Service
+
+Responsible for:
+
+* Business logic
+* Validation
+* Events
+* Notifications
+* Orchestration
+
+Services should not contain Prisma queries.
+
+---
+
+### Db Service
+
+Responsible for:
+
+* Prisma queries (when no separate repository exists — **auth pattern**)
+* Cache handling
+* Error mapping
+* Query building
+* Repository coordination (when `repository/` exists)
+
+When the db layer only delegates to a repository with no extra logic, **merge into `db.service`** and delete the repository file.
+
+---
+
+### Repository
+
+Responsible for:
+
+* Prisma queries only
+
+Examples:
+
+```ts
+findById()
+findByEmail()
+create()
+update()
+delete()
+paginate()
+```
+
+Repositories should never contain business logic.
+
+---
+
+### DTO
+
+Responsible for:
+
+* Request validation
+
+Use:
+
+* class-validator
+* class-transformer
+
+Never use interfaces for request validation.
+
+---
+
+### Helpers
+
+Responsible for:
+
+* Utility functions
+* Password hashing
+* Transformations
+* Formatting
+
+No database queries.
+
+---
+
+### Types
+
+Responsible for:
+
+* Enums
+* Interfaces
+* Response types
+* Prisma extensions
+* Shared types
+
+---
+
+### Guards
+
+Responsible for:
+
+* Authentication
+* Authorization
+
+No business logic.
+
+---
+
+### Swagger
+
+Responsible for:
+
+* ApiOperation
+* ApiResponse
+* ApiBearerAuth
+
+Keep swagger decorators separate from controllers.
+
+---
+
+# Prisma Rules
+
+Prisma queries belong in **repository** or **db.service** — never in business services or controllers.
+
+For modules **with** `repository/`:
+
+❌ `user.service.ts` → `prisma.user.findMany()`
+
+✅ `user.repository.ts` → `prisma.user.findMany()`
+
+For modules **without** `repository/` (e.g. `auth/`):
+
+✅ `auth.db.service.ts` → `prisma.user.findUnique()`
+
+---
+
+# Database Performance
+
+### Prevent N+1 Queries
+
+Never execute queries inside loops.
+
+❌
+
+```ts
+for (const user of users) {
+  await prisma.profile.findUnique({
+    where: {
+      userId: user.id,
+    },
+  });
+}
+```
+
+✅
+
+Use:
+
+* include
+* select
+* joins
+* groupBy
+* batch queries
+* Promise.all when appropriate
+
+Example:
+
+```ts
+prisma.user.findMany({
+  include: {
+    profile: true,
+  },
+});
+```
+
+Always review queries to avoid N+1 problems.
+
+---
+
+# Query Optimization
+
+Always:
+
+* Use select whenever possible.
+* Fetch only required fields.
+* Paginate large lists.
+* Use indexes.
+* Avoid unnecessary relations.
+* Use transactions when needed.
+
+---
+
+# Naming Convention
+
+```txt
+user.controller.ts
+user.service.ts
+user.db.service.ts
+user.repository.ts
+user.module.ts
+```
+
+Follow the same naming pattern for every module.
+
+---
+
+# Forbidden
+
+❌ Business logic inside controllers
+
+❌ Prisma queries inside services
+
+❌ Prisma queries inside controllers
+
+❌ Raw SQL unless absolutely necessary
+
+❌ N+1 queries
+
+❌ Database queries inside loops
+
+❌ Duplicate logic
+
+❌ Huge services
+
+❌ Circular dependencies
+
+❌ Importing full feature modules when only specific services are needed
+
+❌ `forwardRef(() => EmailModule)` / `forwardRef(() => AuthModule)` — register services in `providers` instead
+
+❌ Pass-through repository that only forwards every call to db.service (merge into db.service)
+
+❌ Module-specific folder structures
+
+❌ Returning Prisma entities directly
+
+❌ Password fields in responses
+
+❌ Massive files over 250 lines
+
+---
+
+# General Principles
+
+* Single Responsibility Principle.
+* Keep files under 250 lines.
+* Reuse code.
+* Write scalable modules.
+* Use dependency injection.
+* Prefer composition over inheritance.
+* Maintain separation of concerns.
+* Optimize database queries.
+* Write clean and predictable code.
+* Every module should look identical for maintainability.

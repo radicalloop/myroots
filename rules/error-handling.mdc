@@ -1,0 +1,154 @@
+---
+alwaysApply: true
+---
+
+# Error Handling Rules
+
+## Backend: ApiError
+
+All business errors use the shared `ApiError` utility. Never throw generic `Error`.
+
+```ts
+// src/utils/ApiError.ts
+import { HttpException } from '@nestjs/common';
+
+export class ApiError extends HttpException {
+  constructor(status: number, message: string) {
+    super({ success: false, statusCode: status, message }, status);
+  }
+}
+```
+
+---
+
+## Standard Error Codes
+
+```ts
+throw new ApiError(400, 'Invalid request data');         // Bad Request
+throw new ApiError(401, 'Unauthorized');                 // Missing/invalid token
+throw new ApiError(403, 'Permission denied');            // Valid token, wrong role
+throw new ApiError(404, 'User not found');              // Resource missing
+throw new ApiError(409, 'Email already exists');         // Conflict
+throw new ApiError(422, 'Cannot cancel a paid order');  // Business rule violation
+throw new ApiError(429, 'Too many requests');            // Rate limited
+throw new ApiError(500, 'Something went wrong');        // Unexpected error
+```
+
+---
+
+## Global Exception Filter
+
+Catches ALL unhandled exceptions and formats them consistently:
+
+```ts
+@Catch()
+export class GlobalExceptionFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    // Maps HttpException, Prisma errors, and unknown errors
+    // Returns: { success: false, statusCode, message, timestamp, path }
+  }
+}
+```
+
+Register in `main.ts`:
+```ts
+app.useGlobalFilters(new GlobalExceptionFilter());
+```
+
+---
+
+## Service Error Pattern
+
+```ts
+// ✅ Service throws ApiError — controller does not catch it
+async findOne(id: string) {
+  const user = await this.userDb.findById(id);
+  if (!user) throw new ApiError(404, 'User not found');
+  return user;
+}
+
+// ❌ Never
+async findOne(id: string) {
+  try {
+    const user = await this.userDb.findById(id);
+    return user ?? null;
+  } catch {
+    return null; // silent failure
+  }
+}
+```
+
+---
+
+## Prisma Error Mapping
+
+Handle in `GlobalExceptionFilter`:
+
+| Prisma Code | Meaning                          | HTTP Status |
+|-------------|----------------------------------|-------------|
+| P2002       | Unique constraint violation      | 409         |
+| P2025       | Record not found                 | 404         |
+| P2003       | Foreign key constraint failure   | 400         |
+| P2014       | Relation violation               | 400         |
+
+---
+
+## Frontend Error Handling
+
+```ts
+// In mutation hooks — always in the hook, never in components
+const useCreateUser = () => {
+  return useMutation({
+    mutationFn: createUser,
+    onSuccess: () => {
+      toast.success('User created successfully');
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
+    },
+    onError: (error: AxiosError<ApiErrorResponse>) => {
+      toast.error(error.response?.data?.message ?? 'Something went wrong');
+    },
+  });
+};
+```
+
+Axios interceptor for global error handling:
+```ts
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response?.status === 401) {
+      // clear auth, redirect to login
+    }
+    return Promise.reject(error);
+  },
+);
+```
+
+---
+
+## Rules
+
+- Backend: all errors via `ApiError` — never `new Error()` or thrown objects
+- Services throw — controllers do not catch
+- Global filter handles all exception formatting
+- Frontend: mutation errors handled in hook `onError`, never in component
+- All API errors show user-friendly toast — never raw error objects to UI
+- 401 errors trigger auth logout and redirect
+
+---
+
+## Forbidden (Backend)
+
+❌ `throw new Error('...')`
+❌ `throw { status: 400, message: '...' }`
+❌ `return null` silently when something is wrong
+❌ `try/catch` in controllers to format errors
+❌ Exposing internal errors, stack traces, or DB details to client
+
+## Forbidden (Frontend)
+
+❌ `alert()` for error messages
+❌ Error handling inside JSX/render functions
+❌ Raw error objects displayed to users
+❌ Silent API failures with no user feedback
+❌ Missing `onError` handler on mutations

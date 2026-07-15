@@ -1,0 +1,129 @@
+---
+alwaysApply: true
+---
+
+# PostgreSQL Rules
+
+## Connection
+
+Always connect via environment variable — never hardcode credentials:
+
+```env
+DATABASE_URL="postgresql://username:password@localhost:5432/dbname?schema=public&connection_limit=20"
+```
+
+Use connection pooling in production (PgBouncer or Prisma Data Proxy).
+
+---
+
+## Data Types
+
+| Use Case           | PostgreSQL Type  | Prisma Type          |
+|--------------------|------------------|----------------------|
+| Primary key        | UUID             | `String @id @default(uuid())` |
+| Money / prices     | DECIMAL(10,2)    | `Decimal @db.Decimal(10,2)` |
+| Short text         | VARCHAR(255)     | `String @db.VarChar(255)` |
+| Long text          | TEXT             | `String` |
+| Timestamps         | TIMESTAMPTZ      | `DateTime @default(now())` |
+| Boolean            | BOOLEAN          | `Boolean @default(false)` |
+| JSON data          | JSONB            | `Json` |
+| Enums              | ENUM (via Prisma)| `enum` |
+
+Never use `FLOAT` for monetary values — always `DECIMAL`.
+
+---
+
+## Indexing Strategy
+
+Index everything that is:
+- A foreign key
+- Used in `WHERE` clauses
+- Used in `ORDER BY` on large tables
+- Part of a unique constraint
+
+```prisma
+@@index([userId])
+@@index([status, createdAt])   // composite for common filter+sort
+@@index([deletedAt])           // soft deletes
+```
+
+---
+
+## Constraints
+
+Always enforce data integrity at the database level:
+
+```prisma
+email     String   @unique
+slug      String   @unique
+userId    String
+user      User     @relation(...)  // enforces FK constraint
+```
+
+---
+
+## Query Performance
+
+- Always paginate — never `SELECT *` on large tables
+- Use `EXPLAIN ANALYZE` to profile slow queries
+- Avoid `LIKE '%term%'` — use full-text search (`to_tsvector`) for text search
+- Use `ILIKE` only on indexed columns for simple prefix search
+- Prefer `JOIN` over multiple sequential queries
+- Use partial indexes for commonly filtered subsets
+
+```prisma
+// Partial index example (via raw migration)
+CREATE INDEX idx_active_users ON users(created_at) WHERE status = 'ACTIVE';
+```
+
+---
+
+## Transactions
+
+Always use transactions for:
+- Multi-table writes that must be atomic
+- Any operation involving balance, inventory, or counters
+
+```ts
+await prisma.$transaction(async (tx) => {
+  await tx.order.create({ data: orderData });
+  await tx.inventory.update({
+    where: { productId },
+    data: { quantity: { decrement: 1 } },
+  });
+});
+```
+
+---
+
+## Migrations
+
+- All schema changes via Prisma migrations — never manual SQL edits on prod
+- One migration = one logical change
+- Review `prisma migrate diff` before applying
+- Test migrations on staging before production
+- Never delete migration files
+
+---
+
+## Rules
+
+- UUID primary keys everywhere — no auto-increment integers
+- `DECIMAL` for all monetary values — never `FLOAT` or `DOUBLE`
+- Foreign key constraints enforced in schema (not just application code)
+- All timestamps stored as `TIMESTAMPTZ` (timezone-aware)
+- Connection pooling configured in production
+- Never embed credentials in application code
+
+---
+
+## Forbidden
+
+❌ `FLOAT` for prices or monetary values
+❌ Auto-increment integer primary keys
+❌ Manual schema edits on production database
+❌ Missing foreign key constraints
+❌ `SELECT *` queries (via unguarded `findMany()`)
+❌ Unbounded queries without `LIMIT`
+❌ `LIKE '%term%'` on large un-indexed text columns
+❌ Hardcoded database credentials

@@ -1,0 +1,100 @@
+---
+alwaysApply: true
+---
+
+# Middleware Rules
+
+## Responsibility
+
+Middleware runs before the route handler. Use it for:
+- Request logging
+- Correlation ID injection
+- Request enrichment (e.g. attaching parsed headers)
+- IP extraction
+- Basic pre-processing that does not require DI
+
+Do NOT use middleware for:
+- Authentication (use Guards)
+- Business logic
+- Database access
+- Response transformation (use Interceptors)
+
+---
+
+## Structure
+
+```ts
+import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
+import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+
+@Injectable()
+export class RequestLoggerMiddleware implements NestMiddleware {
+  private readonly logger = new Logger('HTTP');
+
+  use(req: Request, res: Response, next: NextFunction): void {
+    const correlationId = uuidv4();
+    req.headers['x-correlation-id'] = correlationId;
+    res.setHeader('x-correlation-id', correlationId);
+
+    const { method, originalUrl, ip } = req;
+    const userAgent = req.get('user-agent') ?? '';
+    const start = Date.now();
+
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      this.logger.log(
+        `${method} ${originalUrl} ${res.statusCode} ${duration}ms — ${ip} ${userAgent}`,
+      );
+    });
+
+    next();
+  }
+}
+```
+
+---
+
+## Registration
+
+Register in `AppModule`:
+
+```ts
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(RequestLoggerMiddleware)
+      .forRoutes('*');
+  }
+}
+```
+
+---
+
+## Common Middleware to Implement
+
+| Middleware            | Purpose                                   |
+|-----------------------|-------------------------------------------|
+| RequestLoggerMiddleware | Log method, URL, status, duration, IP   |
+| CorrelationIdMiddleware | Inject/propagate x-correlation-id       |
+| RawBodyMiddleware     | Preserve raw body for webhook validation  |
+
+---
+
+## Rules
+
+- Middleware must be stateless and side-effect free (except logging)
+- Never access the database from middleware
+- Never throw `ApiError` from middleware — use Guards instead
+- Always call `next()` — never swallow the request
+- Keep middleware lightweight — they run on every request
+
+---
+
+## Forbidden
+
+❌ Authentication logic in middleware
+❌ Database queries in middleware
+❌ Business logic in middleware
+❌ Returning responses from middleware (except error passthrough)
+❌ Heavy synchronous computation in middleware

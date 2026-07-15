@@ -1,0 +1,193 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "DM Serif Display", Georgia, "Times New Roman", serif;
+
+  --color-brand-50: #ecfdf5;
+  --color-brand-100: #d1fae5;
+  --color-brand-200: #a7f3d0;
+  --color-brand-300: #6ee7b7;
+  --color-brand-400: #34d399;
+  --color-brand-500: #10b981;
+  --color-brand-600: #059669;
+  --color-brand-700: #047857;
+  --color-brand-800: #065f46;
+  --color-brand-900: #064e3b;
+
+  --color-warm-50: #faf8f5;
+  --color-warm-100: #f5f0e8;
+  --color-warm-200: #e8dfd0;
+  --color-warm-300: #d4c4a8;
+  --color-warm-400: #b8a078;
+  --color-warm-500: #9a8460;
+
+  --color-olive-400: #8b9a6b;
+  --color-olive-500: #6b7c4e;
+  --color-olive-600: #556339;
+
+  --color-surface: #f8f9fa;
+  --color-surface-elevated: #ffffff;
+  --color-border-soft: #e8eaed;
+  --color-border-subtle: #f0f1f3;
+  --tree-canvas-bg: #f4f6f3;
+
+  --color-text-primary: #1a1d21;
+  --color-text-secondary: #5f6368;
+  --color-text-muted: #9aa0a6;
+
+  --radius-card: 1.25rem;
+  --radius-input: 0.75rem;
+  --radius-button: 0.75rem;
+
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover:
+    0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-modal:
+    0 24px 48px rgba(0, 0, 0, 0.12), 0 8px 16px rgba(0, 0, 0, 0.06);
+
+  --animate-fade-in: fade-in 200ms ease-out;
+  --animate-scale-in: scale-in 200ms ease-out;
+  --animate-slide-up: slide-up 200ms ease-out;
+  --animate-shimmer: shimmer 1.5s infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+* {
+  @apply border-border-soft;
+}
+
+body {
+  @apply bg-surface font-sans text-text-primary antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+button {
+  @apply cursor-pointer;
+}
+
+::selection {
+  @apply bg-brand-100 text-brand-900;
+}
+
+/* Chrome, Edge, Safari */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
+}
+
+/* Firefox */
+input[type="search"] {
+  -moz-appearance: textfield;
+}
+
+.tree-canvas {
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -10%,
+      rgba(16, 185, 129, 0.06),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 60% 40% at 100% 100%,
+      rgba(107, 124, 78, 0.05),
+      transparent 50%
+    ),
+    var(--tree-canvas-bg);
+}
+
+.tree-zoom-controls__btn {
+  @apply flex h-10 w-10 items-center justify-center border-b border-border-soft text-text-primary transition-colors duration-150;
+}
+
+.tree-zoom-controls__btn:last-child {
+  @apply border-b-0;
+}
+
+.tree-zoom-controls__btn:hover {
+  @apply bg-warm-50 text-brand-700;
+}
+
+.tree-zoom-controls__btn:active {
+  @apply bg-brand-50;
+}
+
+.react-flow__minimap {
+  @apply overflow-hidden rounded-2xl border border-border-soft bg-white/90 shadow-card backdrop-blur-md;
+}
+
+.react-flow__panel.react-flow__attribution {
+  @apply hidden;
+}
+
+/* Premium scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-soft) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-border-soft;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  @apply bg-text-muted;
+}
+
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}

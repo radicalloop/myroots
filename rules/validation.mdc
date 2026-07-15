@@ -1,0 +1,147 @@
+---
+alwaysApply: true
+---
+
+# Validation Rules
+
+## Backend Validation
+
+Use `class-validator` on all DTOs. Enable globally with strict settings.
+
+### Global Setup (main.ts)
+
+```ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: { enableImplicitConversion: false },
+    exceptionFactory: (errors) => {
+      const messages = errors.map((e) =>
+        Object.values(e.constraints ?? {}).join(', '),
+      );
+      return new BadRequestException(messages.join('; '));
+    },
+  }),
+);
+```
+
+---
+
+## Common Validators
+
+```ts
+import {
+  IsEmail, IsString, IsEnum, IsUUID, IsOptional, IsInt,
+  IsBoolean, IsUrl, IsPhoneNumber, IsDate, IsPositive,
+  MinLength, MaxLength, Min, Max, Matches, IsArray,
+  ArrayMinSize, ValidateNested, IsNotEmpty,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CreateUserDto {
+  @IsEmail({}, { message: 'Must be a valid email address' })
+  email: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(72)
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message: 'Password must contain uppercase, lowercase, and number',
+  })
+  password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(2)
+  @MaxLength(100)
+  name: string;
+
+  @IsEnum(UserRole)
+  role: UserRole;
+
+  @IsOptional()
+  @IsPhoneNumber()
+  phone?: string;
+}
+```
+
+---
+
+## Nested Object Validation
+
+```ts
+export class CreateOrderDto {
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  @IsArray()
+  @ArrayMinSize(1)
+  items: OrderItemDto[];
+}
+
+export class OrderItemDto {
+  @IsUUID()
+  productId: string;
+
+  @IsInt()
+  @IsPositive()
+  quantity: number;
+}
+```
+
+---
+
+## Frontend Validation (Admin + App)
+
+Use Zod for all form validation.
+
+```ts
+// validations/user.validation.ts
+import { z } from 'zod';
+
+export const createUserSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(/[A-Z]/, 'Must contain uppercase')
+    .regex(/[0-9]/, 'Must contain a number'),
+  name: z.string().min(2).max(100),
+  role: z.nativeEnum(UserRole),
+  phone: z.string().optional(),
+});
+
+export type CreateUserInput = z.infer<typeof createUserSchema>;
+```
+
+Connect to React Hook Form:
+
+```ts
+const form = useForm<CreateUserInput>({
+  resolver: zodResolver(createUserSchema),
+});
+```
+
+---
+
+## Validation Rules
+
+- All backend DTOs use class-validator — no exceptions
+- All frontend forms use Zod schema — no `useState`-based manual validation
+- Error messages must be user-friendly (not internal codes)
+- Schemas live in their own file — never inline in components or controllers
+- Reuse shared schemas across create/update via `PartialType`/`z.partial()`
+- Always validate on both frontend (UX) and backend (security) — never trust frontend alone
+
+---
+
+## Forbidden
+
+❌ Validating only on frontend — backend must also validate
+❌ `any` type in DTOs or Zod schemas
+❌ Validation logic inside service methods that belongs in DTOs
+❌ Zod schemas inside JSX/TSX component files
+❌ Plain `interfaces` for request validation (use DTOs with decorators)
+❌ Generic error messages like "Invalid input" — be specific
+❌ Skipping `forbidNonWhitelisted` — always strip unexpected fields

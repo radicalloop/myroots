@@ -1,0 +1,110 @@
+---
+alwaysApply: true
+---
+
+# Controller Rules
+
+## Responsibility
+
+Controllers are responsible for:
+- Receiving HTTP requests
+- Applying route decorators
+- Applying guards and interceptors
+- Delegating to services
+- Returning formatted responses via `ApiResponse`
+
+Controllers are NOT responsible for:
+- Business logic
+- Database queries
+- Error handling logic
+- Data transformations
+
+---
+
+## Structure
+
+```ts
+import { Controller, Get, Post, Body, Param, Query, UseGuards, ParseUUIDPipe } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { UserService } from './user.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { QueryUserDto } from './dto/query-user.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from './types/user.types';
+import { ApiResponse } from '../../utils/ApiResponse';
+import { UserSwagger } from './swagger/user.swagger';
+
+@ApiTags('Users')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('users')
+export class UserController {
+  constructor(private readonly userService: UserService) {}
+
+  @Get()
+  @Roles(UserRole.ADMIN)
+  @UserSwagger.findAll()
+  async findAll(@Query() query: QueryUserDto) {
+    const result = await this.userService.findAll(query);
+    return ApiResponse.paginated(result.items, result.meta, 'Users fetched successfully');
+  }
+
+  @Get(':id')
+  @Roles(UserRole.ADMIN)
+  @UserSwagger.findOne()
+  async findOne(@Param('id', ParseUUIDPipe) id: string) {
+    const user = await this.userService.findOne(id);
+    return ApiResponse.success(user, 'User fetched successfully');
+  }
+
+  @Post()
+  @Roles(UserRole.SUPER_ADMIN)
+  @UserSwagger.create()
+  async create(@Body() dto: CreateUserDto) {
+    const user = await this.userService.create(dto);
+    return ApiResponse.created(user, 'User created successfully');
+  }
+}
+```
+
+---
+
+## Rules
+
+- One controller per module
+- Max 250 lines per controller file
+- Every route must have `@ApiOperation`, `@ApiResponse`, and guard decorators
+- All Swagger decorators go in `swagger/<module>.swagger.ts`, not inline
+- Always use `ParseUUIDPipe` for UUID params
+- Always use `@Query()` with a typed DTO — never raw query params
+- Always use `@Body()` with a typed DTO — never raw body
+- Return only via `ApiResponse` utility
+- Never catch errors in controllers — let the global exception filter handle them
+
+---
+
+## Route Naming
+
+```ts
+@Get()            // GET /users
+@Get(':id')       // GET /users/:id
+@Post()           // POST /users
+@Patch(':id')     // PATCH /users/:id
+@Delete(':id')    // DELETE /users/:id
+```
+
+---
+
+## Forbidden
+
+❌ `try/catch` blocks inside controllers
+❌ Business logic inside controller methods
+❌ Direct Prisma or repository calls
+❌ Raw `req.body` without DTO
+❌ Inline Swagger decorators (use swagger file)
+❌ Missing guards on authenticated routes
+❌ More than one concern per controller method
+❌ Returning raw Prisma entities
+❌ Any response not using `ApiResponse`

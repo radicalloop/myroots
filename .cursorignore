@@ -1,0 +1,28 @@
+# dependencies
+node_modules/
+
+# git
+.git/
+.gitignore
+
+# next build
+.next/
+out/
+build/
+
+# env files
+.env*
+!.env.example
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# husky
+.husky/
+
+# misc
+.DS_Store
+coverage/
+dist/

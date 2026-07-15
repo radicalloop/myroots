@@ -1,0 +1,132 @@
+---
+alwaysApply: true
+---
+
+# Rate Limiting Rules
+
+## Setup
+
+```ts
+// app.module.ts
+ThrottlerModule.forRootAsync({
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ([
+    {
+      name: 'default',
+      ttl: 60000,   // 1 minute window
+      limit: 60,    // 60 requests per window
+    },
+    {
+      name: 'strict',
+      ttl: 60000,
+      limit: 5,     // 5 requests per minute (auth endpoints)
+    },
+  ]),
+  inject: [ConfigService],
+}),
+
+// Apply globally
+{ provide: APP_GUARD, useClass: ThrottlerGuard },
+```
+
+---
+
+## Endpoint-Specific Limits
+
+```ts
+// Default: 60/min (inherited from global)
+@Get('users')
+findAll() { ... }
+
+// Strict: auth endpoints
+@Throttle({ strict: { ttl: 60000, limit: 5 } })
+@Post('auth/login')
+login() { ... }
+
+@Throttle({ strict: { ttl: 60000, limit: 5 } })
+@Post('auth/register')
+register() { ... }
+
+@Throttle({ strict: { ttl: 60000, limit: 3 } })
+@Post('auth/forgot-password')
+forgotPassword() { ... }
+
+// Skip throttle for internal/webhook routes
+@SkipThrottle()
+@Post('webhooks/stripe')
+stripeWebhook() { ... }
+```
+
+---
+
+## Limits by Endpoint Type
+
+| Endpoint Type              | Limit     | TTL     |
+|----------------------------|-----------|---------|
+| General API                | 60 req    | 1 min   |
+| Auth (login/register)      | 5 req     | 1 min   |
+| Forgot password / OTP      | 3 req     | 1 min   |
+| File upload                | 10 req    | 1 min   |
+| Search / autocomplete      | 30 req    | 1 min   |
+| Admin endpoints            | 120 req   | 1 min   |
+| Webhooks (skip throttle)   | unlimited | —       |
+
+---
+
+## Redis-Backed Throttler (Production)
+
+Use Redis store for distributed rate limiting across multiple instances:
+
+```ts
+ThrottlerModule.forRootAsync({
+  useFactory: () => ({
+    throttlers: [{ ttl: 60000, limit: 60 }],
+    storage: new ThrottlerStorageRedisService(redisClient),
+  }),
+}),
+```
+
+---
+
+## Response on Rate Limit Exceeded
+
+The global filter should handle `ThrottlerException`:
+
+```json
+{
+  "success": false,
+  "statusCode": 429,
+  "message": "Too many requests. Please try again later."
+}
+```
+
+Include `Retry-After` header:
+
+```ts
+// In GlobalExceptionFilter
+if (exception instanceof ThrottlerException) {
+  response.header('Retry-After', '60');
+  // return 429 response
+}
+```
+
+---
+
+## Rules
+
+- Apply rate limiting globally — never rely on individual routes to opt-in
+- Auth endpoints must always have stricter limits than general API
+- Use Redis store in production for distributed rate limiting
+- Webhook endpoints skip throttle — they're server-to-server calls
+- Internal service-to-service endpoints can use `@SkipThrottle()`
+- Always return `Retry-After` header with 429 responses
+
+---
+
+## Forbidden
+
+❌ No rate limiting on auth endpoints
+❌ In-memory throttler in production (won't work across instances)
+❌ Rate limiting only on frontend (backend must enforce)
+❌ Missing 429 response on exceeded limits
+❌ Same rate limit for public and admin endpoints

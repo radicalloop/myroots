@@ -1,0 +1,136 @@
+---
+alwaysApply: true
+---
+
+# Transactions Rules
+
+## When to Use Transactions
+
+Always use transactions when:
+- Writing to more than one table in the same operation
+- Performing balance/inventory/counter updates (decrement + record)
+- Creating parent + children records together
+- Any operation that must be all-or-nothing
+
+---
+
+## Interactive Transactions (Recommended)
+
+```ts
+const result = await this.prisma.$transaction(async (tx) => {
+  // All operations use `tx`, not `this.prisma`
+  const order = await tx.order.create({
+    data: {
+      userId,
+      status: OrderStatus.PENDING,
+      total: calculateTotal(items),
+    },
+  });
+
+  await tx.orderItem.createMany({
+    data: items.map((item) => ({
+      orderId: order.id,
+      productId: item.productId,
+      quantity: item.quantity,
+      price: item.price,
+    })),
+  });
+
+  await tx.inventory.updateMany({
+    where: { productId: { in: items.map((i) => i.productId) } },
+    data: { reserved: { increment: 1 } },
+  });
+
+  return order;
+});
+```
+
+---
+
+## Sequential Transactions (Batch)
+
+For independent operations that should all succeed or all fail:
+
+```ts
+const [user, profile] = await this.prisma.$transaction([
+  this.prisma.user.create({ data: userData }),
+  this.prisma.profile.create({ data: profileData }),
+]);
+```
+
+Use interactive transactions when later operations depend on earlier results.
+Use sequential transactions when operations are independent.
+
+---
+
+## Transaction Timeout
+
+Set timeouts to prevent long-running transactions from locking tables:
+
+```ts
+await this.prisma.$transaction(
+  async (tx) => {
+    // operations
+  },
+  {
+    maxWait: 5000,   // max time to acquire transaction (ms)
+    timeout: 10000,  // max duration of transaction (ms)
+  },
+);
+```
+
+---
+
+## Error Handling in Transactions
+
+Transactions auto-rollback on any thrown error.
+Let errors propagate naturally — do not catch inside transactions.
+
+```ts
+// ✅ Correct — let it propagate, Prisma rolls back automatically
+await this.prisma.$transaction(async (tx) => {
+  await tx.order.create({ data: orderData });
+  await tx.inventory.update({ ... }); // if this throws, order creation is rolled back
+});
+
+// ❌ Wrong — swallowing error defeats the purpose
+await this.prisma.$transaction(async (tx) => {
+  try {
+    await tx.inventory.update({ ... });
+  } catch {
+    // silent catch — order was created but inventory not updated
+  }
+});
+```
+
+---
+
+## Rules
+
+- Repositories responsible for transaction-aware queries must accept a `tx` param
+- Never use `this.prisma` inside a transaction — always use the `tx` parameter
+- Always set `timeout` for transactions that involve external calls
+- Transactions should be as short as possible — do not include HTTP calls, email sends, or file uploads inside transactions
+- Post-transaction side effects (emails, notifications, events) go AFTER the transaction block
+
+```ts
+// ✅ Side effects after transaction
+const order = await this.prisma.$transaction(async (tx) => {
+  // DB operations only
+  return createdOrder;
+});
+
+// After transaction commits:
+await this.emailService.sendOrderConfirmation(order);
+await this.eventEmitter.emit('order.created', order);
+```
+
+---
+
+## Forbidden
+
+❌ HTTP calls, email sends, or file uploads inside transactions
+❌ Using `this.prisma` instead of `tx` inside interactive transactions
+❌ Catching errors silently inside transactions
+❌ Missing transactions on multi-table writes
+❌ Long-running transactions without timeout configuration

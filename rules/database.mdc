@@ -1,0 +1,172 @@
+---
+alwaysApply: true
+---
+
+# Database Rules
+
+## Stack
+
+- ORM: Prisma
+- Database: PostgreSQL 15+
+- All queries through Prisma — no raw SQL except for advanced analytics
+
+---
+
+## PrismaService
+
+```ts
+// src/prisma/prisma.service.ts
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  private readonly logger = new Logger(PrismaService.name);
+
+  async onModuleInit() {
+    await this.$connect();
+    this.logger.log('Database connected');
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+    this.logger.log('Database disconnected');
+  }
+}
+```
+
+---
+
+## Query Rules
+
+### Always use `select`
+
+Never return full Prisma models — always select only required fields:
+
+```ts
+// ✅
+await this.prisma.user.findMany({
+  select: { id: true, email: true, name: true, role: true },
+});
+
+// ❌
+await this.prisma.user.findMany();
+```
+
+### No N+1 Queries
+
+Never query inside loops:
+
+```ts
+// ❌
+for (const order of orders) {
+  const user = await prisma.user.findUnique({ where: { id: order.userId } });
+}
+
+// ✅
+const orders = await prisma.order.findMany({
+  include: { user: { select: { id: true, name: true } } },
+});
+```
+
+### Transactions for Multi-Step Writes
+
+```ts
+await this.prisma.$transaction(async (tx) => {
+  const user = await tx.user.create({ data: createUserData });
+  await tx.profile.create({ data: { ...profileData, userId: user.id } });
+  await tx.wallet.create({ data: { userId: user.id, balance: 0 } });
+  return user;
+});
+```
+
+### Parallel Independent Queries
+
+```ts
+const [users, total] = await this.prisma.$transaction([
+  this.prisma.user.findMany({ where, skip, take }),
+  this.prisma.user.count({ where }),
+]);
+```
+
+---
+
+## Connection Pooling
+
+Configure in DATABASE_URL:
+
+```
+DATABASE_URL="postgresql://user:pass@host:5432/db?connection_limit=20&pool_timeout=10"
+```
+
+---
+
+## Indexes
+
+Always index:
+- Foreign keys (`userId`, `orderId`, `productId`)
+- Frequently filtered columns (`email`, `status`, `createdAt`)
+- Unique constraints
+
+```prisma
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  role      UserRole @default(USER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime @default(now())
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+}
+```
+
+---
+
+## Soft Deletes
+
+For entities that should not be hard-deleted:
+
+```prisma
+model Order {
+  deletedAt DateTime?
+  @@index([deletedAt])
+}
+```
+
+Filter in repository:
+
+```ts
+findAll() {
+  return this.prisma.order.findMany({
+    where: { deletedAt: null },
+  });
+}
+```
+
+---
+
+## Rules
+
+- Prisma queries live in **repository** or **db.service** — never in business services or controllers
+- Use `repository/` for larger modules with cache/coordination in db.service; use db.service-only for thin layers (auth)
+- Always use `select` — never return full models
+- Always paginate list queries
+- Always use transactions for multi-table writes
+- Always index foreign keys and filter columns
+- Never use raw SQL for CRUD — only for complex analytics
+- Never run Prisma queries inside loops
+
+---
+
+## Forbidden
+
+❌ Prisma in business services or controllers
+❌ Pass-through repository + db.service duplicate (auth uses db.service only)
+❌ `findMany()` without `take` (unbounded queries)
+❌ N+1 queries
+❌ Missing `select` (over-fetching)
+❌ Un-indexed foreign keys
+❌ Raw SQL for standard CRUD
+❌ Missing transactions on multi-step writes

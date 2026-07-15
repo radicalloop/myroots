@@ -1,0 +1,145 @@
+---
+alwaysApply: true
+---
+
+# Events Rules
+
+## Stack
+
+- NestJS `EventEmitter2` (`@nestjs/event-emitter`)
+- Internal domain events for decoupling modules
+
+---
+
+## Setup
+
+```ts
+// app.module.ts
+EventEmitterModule.forRoot({
+  wildcard: true,
+  delimiter: '.',
+  maxListeners: 20,
+}),
+```
+
+---
+
+## Event Name Constants
+
+```ts
+// src/common/constants/events.ts
+export const EVENTS = {
+  USER: {
+    CREATED: 'user.created',
+    UPDATED: 'user.updated',
+    DELETED: 'user.deleted',
+    PASSWORD_CHANGED: 'user.password.changed',
+  },
+  ORDER: {
+    CREATED: 'order.created',
+    STATUS_CHANGED: 'order.status.changed',
+    CANCELLED: 'order.cancelled',
+    COMPLETED: 'order.completed',
+  },
+  PAYMENT: {
+    SUCCESS: 'payment.success',
+    FAILED: 'payment.failed',
+    REFUNDED: 'payment.refunded',
+  },
+} as const;
+```
+
+---
+
+## Event Payload Types
+
+```ts
+// src/common/types/events.types.ts
+export interface UserCreatedEvent {
+  userId: string;
+  email: string;
+  name: string;
+}
+
+export interface OrderStatusChangedEvent {
+  orderId: string;
+  userId: string;
+  previousStatus: OrderStatus;
+  newStatus: OrderStatus;
+}
+```
+
+---
+
+## Emitting Events (from Service)
+
+```ts
+@Injectable()
+export class UserService {
+  constructor(private readonly eventEmitter: EventEmitter2) {}
+
+  async create(dto: CreateUserDto) {
+    const user = await this.userDb.create(dto);
+
+    // Emit AFTER the transaction/operation succeeds
+    this.eventEmitter.emit(EVENTS.USER.CREATED, {
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    } satisfies UserCreatedEvent);
+
+    return user;
+  }
+}
+```
+
+---
+
+## Listening to Events (Listener)
+
+```ts
+@Injectable()
+export class UserEventListener {
+  private readonly logger = new Logger(UserEventListener.name);
+
+  constructor(
+    private readonly notificationService: NotificationService,
+    private readonly emailService: EmailService,
+  ) {}
+
+  @OnEvent(EVENTS.USER.CREATED)
+  async handleUserCreated(event: UserCreatedEvent): Promise<void> {
+    this.logger.log(`Handling user.created: ${event.userId}`);
+
+    await this.notificationService.sendWelcome(event.userId);
+    await this.emailService.sendWelcome(event.email, event.name);
+  }
+
+  @OnEvent(EVENTS.ORDER.COMPLETED)
+  async handleOrderCompleted(event: OrderStatusChangedEvent): Promise<void> {
+    // handle post-order completion logic
+  }
+}
+```
+
+---
+
+## Rules
+
+- Emit events AFTER operations succeed — never inside transactions
+- Listener methods must be `async` and handle their own errors
+- Listeners must not throw uncaught errors (it would crash the emitter)
+- Use typed event payloads — never emit raw untyped objects
+- Events are for internal decoupling only — not for external consumers
+- Register all listeners in the relevant module's `providers` array
+
+---
+
+## Forbidden
+
+❌ Emitting events inside database transactions
+❌ Hardcoded event name strings
+❌ Untyped event payloads (`any`)
+❌ Business logic that depends on the result of an event listener
+❌ Cross-app event coupling (events are module-internal)
+❌ Missing error handling inside event listeners

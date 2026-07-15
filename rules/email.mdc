@@ -1,0 +1,124 @@
+---
+alwaysApply: true
+---
+
+# Email Rules
+
+## Stack
+
+- Provider: Resend (or SendGrid — follow project config)
+- Template engine: React Email or Handlebars
+- Sending: always async via queue — never blocking HTTP requests
+
+---
+
+## Architecture
+
+```
+Service → Queue (BullMQ) → Processor → EmailService → Provider (Resend)
+```
+
+Never send emails synchronously in HTTP handlers.
+
+---
+
+## EmailService
+
+```ts
+// src/modules/email/email.service.ts
+@Injectable()
+export class EmailService {
+  private readonly logger = new Logger(EmailService.name);
+
+  constructor(private readonly configService: ConfigService) {}
+
+  async sendWelcome(to: string, name: string): Promise<void> {
+    await this.send({
+      to,
+      subject: 'Welcome to the platform',
+      template: 'welcome',
+      context: { name },
+    });
+  }
+
+  async sendOrderConfirmation(to: string, order: OrderSummary): Promise<void> {
+    await this.send({
+      to,
+      subject: `Order #${order.id} confirmed`,
+      template: 'order-confirmation',
+      context: { order },
+    });
+  }
+
+  async sendPasswordReset(to: string, resetUrl: string): Promise<void> {
+    await this.send({
+      to,
+      subject: 'Reset your password',
+      template: 'password-reset',
+      context: { resetUrl, expiresIn: '30 minutes' },
+    });
+  }
+
+  private async send(params: SendEmailParams): Promise<void> {
+    try {
+      // call Resend / SendGrid SDK here
+      this.logger.log(`Email sent: ${params.template} → ${params.to}`);
+    } catch (error) {
+      this.logger.error(`Email failed: ${params.template} → ${params.to}`, error.stack);
+      throw error;
+    }
+  }
+}
+```
+
+---
+
+## Email Templates
+
+```
+src/modules/email/templates/
+├── welcome.hbs
+├── order-confirmation.hbs
+├── password-reset.hbs
+├── email-verification.hbs
+└── invoice.hbs
+```
+
+---
+
+## Rules
+
+- All emails sent via queue (BullMQ) — never block HTTP
+- `EmailService` is the only class that calls the email provider
+- Always log email sends (success and failure) with recipient and template name
+- Never log email body content — it may contain PII
+- Always have retry logic on queue jobs (attempts: 3)
+- Use typed template context objects — never pass untyped `any`
+- Password reset links must expire (include expiry in template context)
+- All links in emails use HTTPS
+- Test email sending with a sandbox/test mode in development
+
+---
+
+## Environment Variables
+
+```env
+EMAIL_FROM=noreply@yourdomain.com
+EMAIL_FROM_NAME=YourApp
+RESEND_API_KEY=re_xxxx
+# or
+SENDGRID_API_KEY=SG.xxxx
+```
+
+---
+
+## Forbidden
+
+❌ Sending emails synchronously in HTTP handlers
+❌ Hardcoded sender email address
+❌ Logging email body content (PII risk)
+❌ Missing retry on email queue jobs
+❌ HTTP links in emails (must be HTTPS)
+❌ Password reset links without expiry
+❌ `any` type for template context
+❌ Calling email provider SDK directly from services (use EmailService)

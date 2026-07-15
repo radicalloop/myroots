@@ -1,0 +1,133 @@
+---
+alwaysApply: true
+---
+
+# Entity & Types Rules
+
+## Responsibility
+
+The `types/` folder in each module holds:
+- Enums specific to the module
+- TypeScript interfaces for responses and internal types
+- Prisma type extensions
+- Shared types used across the module's layers
+
+---
+
+## File Structure
+
+```
+user/types/
+└── user.types.ts
+```
+
+One types file per module. If it exceeds 100 lines, split logically:
+
+```
+user/types/
+├── user.types.ts       → main interfaces
+├── user.enums.ts       → enums
+└── user.prisma.ts      → Prisma extensions / selects
+```
+
+---
+
+## Enums
+
+```ts
+export enum UserRole {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  ADMIN = 'ADMIN',
+  USER = 'USER',
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  BANNED = 'BANNED',
+  PENDING_VERIFICATION = 'PENDING_VERIFICATION',
+}
+```
+
+---
+
+## Response Interfaces
+
+Define typed response shapes — never return raw Prisma types from controllers.
+
+```ts
+export interface UserResponse {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  status: UserStatus;
+  avatarUrl: string | null;
+  createdAt: Date;
+}
+
+export interface UserWithProfile extends UserResponse {
+  profile: ProfileResponse;
+}
+
+export interface PaginatedUsers {
+  items: UserResponse[];
+  meta: PaginationMeta;
+}
+```
+
+---
+
+## Pagination Meta
+
+```ts
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+```
+
+---
+
+## Prisma Select Types
+
+Use `Prisma.UserSelect` or typed const selects for reusable field sets:
+
+```ts
+import { Prisma } from '@prisma/client';
+
+export const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  status: true,
+  avatarUrl: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+export type UserFromDb = Prisma.UserGetPayload<{ select: typeof userSelect }>;
+```
+
+---
+
+## Rules
+
+- Never return raw `Prisma.User` from controllers — always map to a typed response
+- Never include `password`, `refreshToken`, or sensitive fields in response types
+- Always define enums as const string enums (not numeric)
+- Shared enums used across modules go in `src/common/types/`
+- Never duplicate enum definitions across modules
+
+---
+
+## Forbidden
+
+❌ Raw Prisma types in API responses
+❌ `password` or `refreshToken` in any response interface
+❌ Numeric enums (use string enums for readability in DB and logs)
+❌ `any` in type definitions
+❌ Inline type definitions in service or controller files
+❌ Duplicating enums across multiple modules

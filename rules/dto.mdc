@@ -1,0 +1,140 @@
+---
+alwaysApply: true
+---
+
+# DTO Rules
+
+## Responsibility
+
+DTOs (Data Transfer Objects) define and validate the shape of incoming request data.
+
+- All request bodies must use DTOs
+- All query params must use DTOs
+- Use `class-validator` for validation decorators
+- Use `class-transformer` for type coercion (`@Type`)
+
+---
+
+## Create DTO
+
+```ts
+import {
+  IsEmail, IsString, IsEnum, MinLength, IsOptional, IsUrl, MaxLength
+} from 'class-validator';
+import { UserRole } from '../types/user.types';
+
+export class CreateUserDto {
+  @IsEmail({}, { message: 'Invalid email address' })
+  email: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MaxLength(72)
+  password: string;
+
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
+  name: string;
+
+  @IsEnum(UserRole, { message: 'Invalid role' })
+  role: UserRole;
+
+  @IsOptional()
+  @IsUrl()
+  avatarUrl?: string;
+}
+```
+
+---
+
+## Update DTO
+
+Always extend `PartialType` from CreateDto:
+
+```ts
+import { PartialType, OmitType } from '@nestjs/mapped-types';
+import { CreateUserDto } from './create-user.dto';
+
+export class UpdateUserDto extends PartialType(
+  OmitType(CreateUserDto, ['email', 'password'] as const),
+) {}
+```
+
+---
+
+## Query DTO
+
+```ts
+import { IsOptional, IsString, IsInt, Min, Max, IsEnum } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class QueryUserDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+}
+```
+
+---
+
+## Rules
+
+- Never use plain interfaces for request validation — always DTOs with class-validator
+- Always validate every field explicitly — never assume data is clean
+- Use `@IsOptional()` for optional fields — not `?` alone
+- Use `@Type(() => Number)` for numeric query params (they arrive as strings)
+- Always provide clear, user-friendly validation messages
+- Separate create / update / query DTOs — never reuse carelessly
+- Use `OmitType`, `PartialType`, `PickType` from `@nestjs/mapped-types` to reduce duplication
+- Strip unknown properties with `whitelist: true` in global `ValidationPipe`
+- Reject unknown properties with `forbidNonWhitelisted: true`
+
+---
+
+## Global ValidationPipe Setup
+
+```ts
+// main.ts
+app.useGlobalPipes(
+  new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+    transformOptions: { enableImplicitConversion: false },
+  }),
+);
+```
+
+---
+
+## Forbidden
+
+❌ Plain interfaces for request validation
+❌ `any` type in DTOs
+❌ Missing validation decorators on fields
+❌ Raw `req.body` without DTOs
+❌ Sharing the same DTO for create and update without `PartialType`
+❌ Validation logic inside services that belongs in DTOs
+❌ Missing `@Type()` on numeric/boolean query params

@@ -1,0 +1,162 @@
+---
+alwaysApply: true
+---
+
+# Pagination Rules
+
+## All List Endpoints Must Paginate
+
+Never return an unbounded list. Every `findAll` / `getAll` endpoint must accept and enforce pagination.
+
+---
+
+## Query Params
+
+```
+GET /users?page=1&limit=20&sortBy=createdAt&sortOrder=desc&search=john
+```
+
+---
+
+## Query DTO
+
+```ts
+// src/common/dto/pagination.dto.ts
+import { IsOptional, IsInt, Min, Max, IsEnum, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class PaginationDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+
+  @IsOptional()
+  @IsString()
+  sortBy?: string = 'createdAt';
+
+  @IsOptional()
+  @IsEnum(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+```
+
+Extend per module:
+```ts
+export class QueryUserDto extends PaginationDto {
+  @IsOptional()
+  @IsEnum(UserRole)
+  role?: UserRole;
+}
+```
+
+---
+
+## Repository Pattern
+
+```ts
+async findAll(query: QueryUserDto) {
+  const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc', search, role } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.UserWhereInput = {
+    ...(search && {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ],
+    }),
+    ...(role && { role }),
+    deletedAt: null,
+  };
+
+  const [items, total] = await this.prisma.$transaction([
+    this.prisma.user.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      select: userSelect,
+    }),
+    this.prisma.user.count({ where }),
+  ]);
+
+  return { items, total };
+}
+```
+
+---
+
+## Pagination Meta
+
+```ts
+// src/common/utils/pagination.util.ts
+export function buildPaginationMeta(total: number, page: number, limit: number) {
+  return {
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  };
+}
+```
+
+---
+
+## Response Format
+
+```ts
+// Controller
+const { items, total } = await this.userService.findAll(query);
+const meta = buildPaginationMeta(total, query.page, query.limit);
+return ApiResponse.paginated(items, meta, 'Users fetched successfully');
+```
+
+Response shape:
+```json
+{
+  "success": true,
+  "message": "Users fetched successfully",
+  "data": [...],
+  "meta": {
+    "total": 240,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 12
+  }
+}
+```
+
+---
+
+## Rules
+
+- Default `page: 1`, `limit: 20`
+- Hard cap `limit` at 100 — never allow unlimited
+- Always return `meta` with total, page, limit, totalPages
+- Use `$transaction` to run count and items in parallel
+- `sortBy` must be validated against allowed fields — never pass raw string to `orderBy`
+- Search is always case-insensitive
+
+---
+
+## Forbidden
+
+❌ `findMany()` without `take` (unbounded)
+❌ Returning arrays without pagination meta on list endpoints
+❌ Allowing `limit` > 100
+❌ Passing unvalidated `sortBy` directly to Prisma `orderBy`
+❌ Separate DB calls for items and count (use `$transaction`)
+❌ Skipping `deletedAt: null` filter on soft-delete models

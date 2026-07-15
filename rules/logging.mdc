@@ -1,0 +1,132 @@
+---
+alwaysApply: true
+---
+
+# Logging Rules
+
+## Backend: NestJS Logger
+
+Always use NestJS `Logger` — never `console.log`.
+
+```ts
+import { Logger } from '@nestjs/common';
+
+@Injectable()
+export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
+  async create(dto: CreateUserDto) {
+    this.logger.log(`Creating user: ${dto.email}`);
+    const user = await this.userDb.create(dto);
+    this.logger.log(`User created: ${user.id}`);
+    return user;
+  }
+
+  async delete(id: string) {
+    this.logger.warn(`Deleting user: ${id}`);
+    await this.userDb.delete(id);
+  }
+}
+```
+
+---
+
+## Log Levels
+
+| Level     | When to use                                         |
+|-----------|-----------------------------------------------------|
+| `log`     | Normal operations: entity created, job started      |
+| `warn`    | Recoverable issues: retry attempt, deprecated usage |
+| `error`   | Failures requiring attention: DB error, payment fail|
+| `debug`   | Detailed info for development (disabled in prod)    |
+| `verbose` | Very detailed tracing (disabled in prod)            |
+
+```ts
+this.logger.log('User registered');
+this.logger.warn(`Login failed for email: ${email}`);
+this.logger.error('Payment processing failed', error.stack);
+this.logger.debug(`Processing item: ${JSON.stringify(item)}`);
+```
+
+---
+
+## What to Log
+
+✅ Log:
+- Entity creation, update, deletion (with ID)
+- Authentication events (login success, login failure — no password)
+- Background job start/complete/failure
+- External API calls (service name, status — no credentials)
+- Error stack traces for 5xx errors
+
+❌ Never Log:
+- Passwords, tokens, refresh tokens, secrets
+- Full credit card numbers or CVVs
+- PII beyond what's necessary (email for auth events is okay)
+- Full request bodies containing sensitive data
+
+---
+
+## Structured Logging (Production)
+
+In production, configure JSON logging for log aggregation (Datadog, CloudWatch, etc.):
+
+```ts
+// main.ts — production only
+if (process.env.NODE_ENV === 'production') {
+  app.useLogger(new StructuredLogger());
+}
+```
+
+Every log entry should include:
+- `timestamp`
+- `level`
+- `context` (class name)
+- `message`
+- `correlationId` (from request header)
+
+---
+
+## Request Logging
+
+Use `LoggingInterceptor` or `RequestLoggerMiddleware` for HTTP request logs:
+
+```
+[HTTP] GET /users → 200 OK 42ms — 192.168.1.1
+[HTTP] POST /auth/login → 401 Unauthorized 5ms — 192.168.1.1
+```
+
+---
+
+## Error Logging
+
+Log full stack traces for unexpected errors:
+
+```ts
+this.logger.error(
+  `Failed to process order ${orderId}: ${error.message}`,
+  error.stack,
+);
+```
+
+---
+
+## Rules
+
+- Use `Logger` in every service and job
+- Pass class name to Logger: `new Logger(UserService.name)`
+- All error logs must include the stack trace
+- Never log sensitive data
+- Debug/verbose logs only in development — disabled in production
+- Use correlation ID in logs for traceability
+
+---
+
+## Forbidden
+
+❌ `console.log` anywhere in backend code
+❌ `console.error` — use `logger.error`
+❌ Logging passwords, tokens, or secret values
+❌ Missing context in Logger (`new Logger()` without name)
+❌ Swallowing errors without logging them
+❌ Debug logs in production builds

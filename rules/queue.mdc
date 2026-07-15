@@ -1,0 +1,165 @@
+---
+alwaysApply: true
+---
+
+# Queue Rules
+
+## Stack
+
+- Queue: BullMQ (via `@nestjs/bullmq`)
+- Broker: Redis
+
+---
+
+## When to Use Queues
+
+Use queues for any work that should not block the HTTP response:
+- Sending emails / SMS / push notifications
+- Processing file uploads or image resizing
+- Webhooks and third-party API calls
+- PDF generation / report generation
+- Syncing data to external services
+- Any operation that takes > 500ms
+
+---
+
+## Setup
+
+```ts
+// app.module.ts
+BullModule.forRootAsync({
+  imports: [ConfigModule],
+  useFactory: (config: ConfigService) => ({
+    connection: {
+      host: config.get('REDIS_HOST'),
+      port: config.get('REDIS_PORT'),
+    },
+  }),
+  inject: [ConfigService],
+}),
+
+BullModule.registerQueue({ name: 'email' }),
+BullModule.registerQueue({ name: 'notification' }),
+```
+
+---
+
+## Queue Names (Constants)
+
+```ts
+// src/common/constants/queues.ts
+export const QUEUES = {
+  EMAIL: 'email',
+  NOTIFICATION: 'notification',
+  FILE_PROCESSING: 'file-processing',
+  REPORT: 'report',
+} as const;
+```
+
+---
+
+## Job Names (Constants)
+
+```ts
+// src/common/constants/jobs.ts
+export const JOBS = {
+  SEND_WELCOME_EMAIL: 'send-welcome-email',
+  SEND_ORDER_CONFIRMATION: 'send-order-confirmation',
+  SEND_PUSH_NOTIFICATION: 'send-push-notification',
+  RESIZE_IMAGE: 'resize-image',
+  GENERATE_INVOICE: 'generate-invoice',
+} as const;
+```
+
+---
+
+## Producer (Service)
+
+Add jobs from services, never from controllers:
+
+```ts
+@Injectable()
+export class NotificationService {
+  constructor(
+    @InjectQueue(QUEUES.NOTIFICATION)
+    private readonly notificationQueue: Queue,
+  ) {}
+
+  async sendWelcomeEmail(userId: string, email: string) {
+    await this.notificationQueue.add(
+      JOBS.SEND_WELCOME_EMAIL,
+      { userId, email },
+      {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: 100,
+        removeOnFail: 500,
+      },
+    );
+  }
+}
+```
+
+---
+
+## Consumer (Processor)
+
+```ts
+@Processor(QUEUES.NOTIFICATION)
+export class NotificationProcessor {
+  private readonly logger = new Logger(NotificationProcessor.name);
+
+  constructor(private readonly emailService: EmailService) {}
+
+  @Process(JOBS.SEND_WELCOME_EMAIL)
+  async handleWelcomeEmail(job: Job<{ userId: string; email: string }>) {
+    this.logger.log(`Processing welcome email for: ${job.data.email}`);
+
+    try {
+      await this.emailService.sendWelcome(job.data.email);
+      this.logger.log(`Welcome email sent: ${job.data.email}`);
+    } catch (error) {
+      this.logger.error(`Failed to send welcome email: ${error.message}`, error.stack);
+      throw error; // re-throw so BullMQ retries
+    }
+  }
+}
+```
+
+---
+
+## Job Options
+
+```ts
+{
+  attempts: 3,                            // retry 3 times on failure
+  backoff: { type: 'exponential', delay: 2000 }, // 2s, 4s, 8s
+  removeOnComplete: 100,                  // keep last 100 completed jobs
+  removeOnFail: 500,                      // keep last 500 failed jobs
+  delay: 5000,                            // delay before processing (ms)
+  priority: 1,                            // lower = higher priority
+}
+```
+
+---
+
+## Rules
+
+- Always use named constants for queue names and job names
+- Producers live in services — never add jobs from controllers
+- Consumers re-throw errors so BullMQ can retry
+- Always set `attempts` and `backoff` — never fire-and-forget without retry
+- Log job start, success, and failure in the processor
+- Never await a queue job in an HTTP handler — the point is non-blocking
+- Use `removeOnComplete` and `removeOnFail` to avoid memory leak in Redis
+
+---
+
+## Forbidden
+
+❌ Adding jobs from controllers
+❌ Jobs without retry configuration
+❌ Awaiting queue jobs in HTTP handlers
+❌ Hardcoded queue/job name strings
+❌ Missing error logging in processors
+❌ Missing `removeOnComplete` / `removeOnFail` — Redis will grow unbounded

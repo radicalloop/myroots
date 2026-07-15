@@ -1,0 +1,137 @@
+---
+alwaysApply: true
+---
+
+# Interceptors Rules
+
+## Responsibility
+
+Interceptors run around the route handler. Use them for:
+- Response transformation / serialization
+- Request/response logging
+- Performance timing
+- Cache binding
+- Serializing sensitive fields out of responses
+
+Do NOT use for:
+- Authentication (use Guards)
+- Business logic
+- Database mutations
+
+---
+
+## Response Transform Interceptor
+
+Strips fields that should never be in a response (e.g. `password`):
+
+```ts
+import {
+  Injectable, NestInterceptor, ExecutionContext, CallHandler
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+
+@Injectable()
+export class SanitizeResponseInterceptor implements NestInterceptor {
+  private readonly sensitiveFields = ['password', 'refreshToken', 'resetToken', 'pin'];
+
+  intercept(_context: ExecutionContext, next: CallHandler): Observable<any> {
+    return next.handle().pipe(
+      map((data) => this.sanitize(data)),
+    );
+  }
+
+  private sanitize(obj: any): any {
+    if (!obj || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map((i) => this.sanitize(i));
+
+    const result = { ...obj };
+    for (const field of this.sensitiveFields) {
+      delete result[field];
+    }
+
+    return Object.fromEntries(
+      Object.entries(result).map(([k, v]) => [k, this.sanitize(v)]),
+    );
+  }
+}
+```
+
+---
+
+## Logging Interceptor
+
+```ts
+import {
+  Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
+
+@Injectable()
+export class LoggingInterceptor implements NestInterceptor {
+  private readonly logger = new Logger('Request');
+
+  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+    const req = context.switchToHttp().getRequest();
+    const { method, url } = req;
+    const now = Date.now();
+
+    return next.handle().pipe(
+      tap(() => {
+        this.logger.log(`${method} ${url} — ${Date.now() - now}ms`);
+      }),
+    );
+  }
+}
+```
+
+---
+
+## Cache Interceptor (Custom TTL)
+
+Use NestJS built-in `CacheInterceptor` with custom TTL via `@CacheTTL()` decorator:
+
+```ts
+@UseInterceptors(CacheInterceptor)
+@CacheTTL(60)
+@Get('stats')
+getStats() { ... }
+```
+
+---
+
+## Registration
+
+Global (in AppModule):
+```ts
+providers: [
+  { provide: APP_INTERCEPTOR, useClass: SanitizeResponseInterceptor },
+  { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
+],
+```
+
+Per-controller or per-route:
+```ts
+@UseInterceptors(SomeSpecificInterceptor)
+```
+
+---
+
+## Rules
+
+- Register sensitive field stripping globally — never rely on individual routes
+- Never put business logic inside interceptors
+- Interceptors should be stateless and pure
+- Prefer global registration for cross-cutting concerns
+- Per-route interceptors for specific behaviour only
+
+---
+
+## Forbidden
+
+❌ Business logic in interceptors
+❌ Database mutations in interceptors
+❌ Authentication logic in interceptors
+❌ Modifying request data in interceptors (use Pipes instead)
+❌ Sensitive fields reaching API responses without being stripped

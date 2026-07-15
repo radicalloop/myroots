@@ -1,0 +1,159 @@
+---
+alwaysApply: true
+---
+
+# Prisma Rules
+
+## Schema Conventions
+
+```prisma
+// All models use uuid primary keys
+model User {
+  id        String     @id @default(uuid())
+  email     String     @unique
+  name      String
+  role      UserRole   @default(USER)
+  status    UserStatus @default(ACTIVE)
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  deletedAt DateTime?
+
+  profile   Profile?
+  orders    Order[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+```
+
+---
+
+## Naming Conventions in Schema
+
+- Model names: PascalCase singular (`User`, `Order`, `ProductCategory`)
+- Table names: snake_case plural via `@@map` (`users`, `orders`, `product_categories`)
+- Field names: camelCase in Prisma (`createdAt`), mapped to snake_case in DB (`created_at`)
+- Foreign keys: `userId`, `orderId`, `productId` (camelCase, with `@relation`)
+
+```prisma
+model Order {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  total     Decimal  @db.Decimal(10, 2)
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+```
+
+---
+
+## Prisma Client Best Practices
+
+### Use typed inputs
+
+```ts
+// ✅
+import { Prisma } from '@prisma/client';
+
+async create(data: Prisma.UserCreateInput) {
+  return this.prisma.user.create({ data });
+}
+
+// ❌
+async create(data: any) {
+  return this.prisma.user.create({ data });
+}
+```
+
+### Reusable Select Types
+
+```ts
+export const userSelect = {
+  id: true,
+  email: true,
+  name: true,
+  role: true,
+  createdAt: true,
+} satisfies Prisma.UserSelect;
+
+export type SafeUser = Prisma.UserGetPayload<{ select: typeof userSelect }>;
+```
+
+### upsert for create-or-update
+
+```ts
+await this.prisma.userSettings.upsert({
+  where: { userId },
+  create: { userId, ...defaults },
+  update: { ...updates },
+});
+```
+
+---
+
+## Prisma Middleware / Extensions
+
+Use Prisma middleware for cross-cutting concerns like soft-delete filtering:
+
+```ts
+this.prisma.$use(async (params, next) => {
+  if (params.model === 'Order' && params.action === 'findMany') {
+    params.args.where = { ...params.args.where, deletedAt: null };
+  }
+  return next(params);
+});
+```
+
+---
+
+## Prisma Enums
+
+Define enums in schema and import in TypeScript:
+
+```prisma
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+```
+
+```ts
+import { UserRole } from '@prisma/client';
+```
+
+Never redefine enums in TypeScript — import from `@prisma/client` directly.
+
+---
+
+## Rules
+
+- All models have `id` (uuid), `createdAt`, `updatedAt`
+- All models use `@@map` for snake_case table names
+- All foreign keys have `@@index`
+- All enum values defined in Prisma schema (not repeated in TS)
+- Never use `Int` auto-increment IDs — always uuid
+- Always use `@db.Decimal` for monetary values — never `Float`
+- Use `@@unique` for compound uniqueness constraints
+
+---
+
+## Forbidden
+
+❌ Auto-increment integer primary keys
+❌ `Float` for monetary/financial values — use `Decimal`
+❌ Missing `@@map` table name mappings
+❌ Missing indexes on foreign keys
+❌ Redefining Prisma enums in TypeScript
+❌ `any` in Prisma input types
+❌ Untyped `data` objects in create/update calls

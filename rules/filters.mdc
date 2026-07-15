@@ -1,0 +1,132 @@
+---
+alwaysApply: true
+---
+
+# Exception Filters Rules
+
+## Responsibility
+
+Exception filters catch all unhandled exceptions and return consistent error responses.
+
+- One global exception filter handles all errors
+- Never let raw NestJS or Node errors reach the client
+- All errors must conform to the standard `ApiError` response shape
+
+---
+
+## Global Exception Filter
+
+```ts
+import {
+  ExceptionFilter, Catch, ArgumentsHost,
+  HttpException, HttpStatus, Logger,
+} from '@nestjs/common';
+import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
+
+@Catch()
+export class GlobalExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger('ExceptionFilter');
+
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
+
+    const { status, message } = this.resolveException(exception);
+
+    this.logger.error(
+      `${request.method} ${request.url} → ${status}: ${message}`,
+      exception instanceof Error ? exception.stack : undefined,
+    );
+
+    response.status(status).json({
+      success: false,
+      statusCode: status,
+      message,
+      timestamp: new Date().toISOString(),
+      path: request.url,
+    });
+  }
+
+  private resolveException(exception: unknown): { status: number; message: string } {
+    // NestJS HTTP exceptions (including ApiError which extends HttpException)
+    if (exception instanceof HttpException) {
+      const response = exception.getResponse();
+      const message =
+        typeof response === 'object' && 'message' in response
+          ? Array.isArray((response as any).message)
+            ? (response as any).message.join('; ')
+            : (response as any).message
+          : exception.message;
+      return { status: exception.getStatus(), message };
+    }
+
+    // Prisma known errors
+    if (exception instanceof Prisma.PrismaClientKnownRequestError) {
+      return this.handlePrismaError(exception);
+    }
+
+    // Unknown errors
+    return { status: HttpStatus.INTERNAL_SERVER_ERROR, message: 'Something went wrong' };
+  }
+
+  private handlePrismaError(e: Prisma.PrismaClientKnownRequestError) {
+    switch (e.code) {
+      case 'P2002':
+        return { status: 409, message: 'A record with this value already exists' };
+      case 'P2025':
+        return { status: 404, message: 'Record not found' };
+      case 'P2003':
+        return { status: 400, message: 'Invalid reference — related record not found' };
+      case 'P2014':
+        return { status: 400, message: 'Relation violation' };
+      default:
+        return { status: 500, message: 'Database error' };
+    }
+  }
+}
+```
+
+---
+
+## Registration (main.ts)
+
+```ts
+app.useGlobalFilters(new GlobalExceptionFilter());
+```
+
+---
+
+## ApiError (extends HttpException)
+
+```ts
+import { HttpException } from '@nestjs/common';
+
+export class ApiError extends HttpException {
+  constructor(status: number, message: string) {
+    super({ success: false, statusCode: status, message }, status);
+  }
+}
+```
+
+---
+
+## Rules
+
+- Register one global filter — never write per-route `try/catch` for error formatting
+- Always map Prisma errors to user-friendly messages
+- Never expose stack traces, query details, or internal paths to the client
+- Log all 5xx errors with full stack trace to server logs
+- Log 4xx errors at `warn` level (no stack trace needed)
+- Correlation ID must be available in filter logs
+
+---
+
+## Forbidden
+
+❌ Raw Prisma errors reaching the client
+❌ Stack traces in API error responses (production)
+❌ `try/catch` in controllers for error formatting
+❌ Inconsistent error shapes across modules
+❌ Multiple competing global filters

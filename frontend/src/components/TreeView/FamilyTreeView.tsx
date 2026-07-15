@@ -76,7 +76,7 @@ function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
   ];
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
+    <div className="absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
       {items.map((item) => (
         <span
           key={item.label}

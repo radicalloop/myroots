@@ -83,7 +83,7 @@ export function TreeAssistantPane({
             aria-label="Close assistant"
             onClick={onClose}
           />
-          <div className="relative h-[78dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+          <div className="relative h-[90dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
             <TreeAssistant
               messages={messages}
               isSending={isSending}

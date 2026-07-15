@@ -1,8 +1,21 @@
+import clsx from "clsx";
 import { Heart, Sparkles } from "lucide-react";
 
-export function PersonCardHeartDivider() {
+interface PersonCardHeartDividerProps {
+  invisible?: boolean;
+}
+
+export function PersonCardHeartDivider({
+  invisible = false,
+}: PersonCardHeartDividerProps) {
   return (
-    <div className="mt-5 flex w-full items-center gap-3 px-2">
+    <div
+      className={clsx(
+        "mt-5 flex w-full items-center gap-3 px-2",
+        invisible && "invisible",
+      )}
+      aria-hidden={invisible}
+    >
       <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-200/80 to-pink-200/40" />
       <Heart className="h-3.5 w-3.5 fill-pink-500 text-pink-500" aria-hidden="true" />
       <div className="h-px flex-1 bg-gradient-to-l from-transparent via-pink-200/80 to-pink-200/40" />

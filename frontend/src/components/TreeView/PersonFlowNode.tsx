@@ -17,13 +17,16 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
   const lastName = person.last_name === "-" ? "" : person.last_name;
   const birthYear = person.birth_date?.slice(0, 4);
   const theme = getPersonCardTheme(person.gender);
+  const inCouple = Boolean(person.spouse);
+  const showHeartDivider = theme.showHeartDivider;
+  const showHeartDividerSlot = showHeartDivider || inCouple;
 
   return (
     <div
       data-tree-node-card
-      style={{ width: PEDIGREE_NODE_WIDTH, minHeight: PEDIGREE_NODE_HEIGHT }}
+      style={{ width: PEDIGREE_NODE_WIDTH, height: PEDIGREE_NODE_HEIGHT }}
       className={clsx(
-        "group relative cursor-pointer rounded-[28px] border px-7 pb-7 pt-8 text-center transition-all duration-200",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[28px] border px-7 pb-7 pt-8 text-center transition-all duration-200",
         "shadow-[0_1px_2px_rgba(31,41,35,0.04),0_20px_45px_rgba(31,41,35,0.08)]",
         "hover:-translate-y-0.5 hover:shadow-[0_24px_52px_rgba(31,41,35,0.12)]",
         theme.card,
@@ -44,10 +47,10 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
         position={Position.Top}
         className="!-top-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#b8c2ad] !opacity-100"
       />
-      <div className="flex flex-col items-center text-center">
+      <div className="flex flex-1 flex-col items-center text-center">
         <div
           className={clsx(
-            "relative rounded-full p-2 transition-all duration-200",
+            "relative shrink-0 rounded-full p-2 transition-all duration-200",
             theme.ring,
             highlighted ? theme.ringHighlighted : theme.ringHover,
           )}
@@ -68,38 +71,46 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
             )}
           />
         </div>
-        <div className="mt-5 w-full">
-          <p
-            data-tree-node-label
-            className="truncate font-serif text-3xl leading-none text-text-primary capitalize"
-            title={person.first_name}
-          >
-            {person.first_name}
-          </p>
-          {lastName && (
+        <div className="mt-5 flex w-full flex-1 flex-col items-center">
+          <div className="flex w-full shrink-0 flex-col items-center">
+            <p
+              data-tree-node-label
+              className="w-full truncate font-serif text-3xl leading-none text-text-primary capitalize"
+              title={person.first_name}
+            >
+              {person.first_name}
+            </p>
             <p
               data-tree-node-years
               className={clsx(
-                "mt-2 truncate font-serif text-xl leading-none capitalize",
+                "mt-2 w-full truncate font-serif text-xl leading-none capitalize",
                 theme.lastName,
+                !lastName && "invisible",
               )}
-              title={lastName}
+              title={lastName || undefined}
             >
-              {lastName}
+              {lastName || "\u00a0"}
             </p>
-          )}
-          {theme.showHeartDivider && <PersonCardHeartDivider />}
-          {birthYear && (
-            <div
-              className={clsx(
-                "mt-5 inline-flex h-9 items-center gap-2 rounded-full px-5 text-base font-bold",
-                theme.birthBadge,
-              )}
-            >
-              <CalendarDays className="h-4 w-4 stroke-[1.8]" />
-              <span className="tabular-nums">B. {birthYear}</span>
-            </div>
-          )}
+            {showHeartDividerSlot && (
+              <PersonCardHeartDivider invisible={!showHeartDivider} />
+            )}
+          </div>
+          <div className="flex-1" aria-hidden="true" />
+          <div className="flex w-full shrink-0 justify-center pt-5">
+            {birthYear ? (
+              <div
+                className={clsx(
+                  "inline-flex h-9 items-center gap-2 rounded-full px-5 text-base font-bold",
+                  theme.birthBadge,
+                )}
+              >
+                <CalendarDays className="h-4 w-4 stroke-[1.8]" />
+                <span className="tabular-nums">B. {birthYear}</span>
+              </div>
+            ) : (
+              <div className="h-9" aria-hidden="true" />
+            )}
+          </div>
         </div>
       </div>
       <Handle

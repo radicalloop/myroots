@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { Share2, Trash2, Copy, Check } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Share2, Trash2, Copy, Check, Link2, MessageCircle } from 'lucide-react';
+import { toast } from 'sonner';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,7 +10,11 @@ import {
   useCreateTreeShare,
   useUpdateTreeShare,
   useDeleteTreeShare,
+  useTreeView,
 } from '@/hooks/api/useFamilyTree';
+import { ROUTES } from '@/constants/app.constants';
+import { TreePersonNode } from '@/types/api.types';
+import { shareTreeSnapshot } from '@/utils/share-tree-snapshot';
 
 interface ShareModalProps {
   treeId: string;
@@ -25,6 +30,24 @@ function getShareUrl(token: string): string {
   return `${urlBase}/accept-share/${token}`;
 }
 
+function getPublicTreeUrl(treeId: string): string {
+  return `${urlBase}${ROUTES.PUBLIC_TREE(treeId)}`;
+}
+
+function countRelatives(root: TreePersonNode | null | undefined): number {
+  const visited = new Set<string>();
+
+  const visit = (person: TreePersonNode | null | undefined) => {
+    if (!person || visited.has(person.id)) return;
+    visited.add(person.id);
+    visit(person.spouse);
+    person.children.forEach(visit);
+  };
+
+  visit(root);
+  return visited.size;
+}
+
 function statusVariant(status: string): 'success' | 'warning' | 'default' {
   if (status === 'ACCEPTED') return 'success';
   if (status === 'PENDING') return 'warning';
@@ -33,12 +56,22 @@ function statusVariant(status: string): 'success' | 'warning' | 'default' {
 
 export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareModalProps) {
   const { data: shares, isLoading } = useTreeShares(treeId);
+  const { data: treeView, isLoading: isTreeLoading } = useTreeView(treeId, {
+    enabled: open && isOwner,
+  });
   const createShare = useCreateTreeShare(treeId);
   const updateShare = useUpdateTreeShare(treeId);
   const deleteShare = useDeleteTreeShare(treeId);
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState<'VIEW' | 'EDIT'>('VIEW');
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const [publicLinkCopied, setPublicLinkCopied] = useState(false);
+  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
+  const publicTreeUrl = useMemo(() => getPublicTreeUrl(treeId), [treeId]);
+  const relativesCount = useMemo(
+    () => countRelatives(treeView?.root),
+    [treeView?.root],
+  );
 
   const handleInvite = () => {
     if (!email.trim()) return;
@@ -54,6 +87,41 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
     setTimeout(() => setCopiedToken(null), 2000);
   };
 
+  const handleCopyPublicLink = async () => {
+    try {
+      await navigator.clipboard.writeText(publicTreeUrl);
+      setPublicLinkCopied(true);
+      toast.success('View-only link copied');
+      setTimeout(() => setPublicLinkCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy link');
+    }
+  };
+
+  const handleShareSnapshot = async () => {
+    if (!treeView && isTreeLoading) return;
+
+    try {
+      setIsSharingSnapshot(true);
+      const mode = await shareTreeSnapshot({
+        treeName,
+        relativesCount,
+        shareUrl: publicTreeUrl,
+      });
+
+      if (mode === 'whatsapp') {
+        toast.success('Snapshot downloaded and WhatsApp opened');
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      toast.error(
+        error instanceof Error ? error.message : 'Could not share snapshot',
+      );
+    } finally {
+      setIsSharingSnapshot(false);
+    }
+  };
+
   return (
     <Modal
       open={open}
@@ -64,50 +132,95 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
     >
       <div className="space-y-4">
         {isOwner && (
-          <div className="space-y-3 rounded-xl border border-border-soft p-4">
-            <div>
-              <Input
-                label="Email address"
-                placeholder="colleague@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleInvite();
-                }}
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-text-secondary">
-                Permission
-              </label>
-              <div className="flex gap-2">
+          <div className="space-y-4">
+            <div className="space-y-3 rounded-xl border border-border-soft p-4">
+              <div>
+                <h4 className="text-sm font-semibold text-text-primary">
+                  Share without email
+                </h4>
+                <p className="mt-1 text-xs leading-relaxed text-text-muted">
+                  Anyone with this link can view only.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Button
                   type="button"
-                  variant={permission === 'VIEW' ? 'primary' : 'secondary'}
+                  variant="secondary"
                   size="sm"
-                  onClick={() => setPermission('VIEW')}
+                  className="min-w-0 justify-center gap-2 whitespace-nowrap px-3"
+                  onClick={handleCopyPublicLink}
                 >
-                  Can view
+                  {publicLinkCopied ? (
+                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                  ) : (
+                    <Link2 className="h-4 w-4" aria-hidden="true" />
+                  )}
+                  <span className="truncate">
+                    {publicLinkCopied ? 'Copied' : 'View-only link'}
+                  </span>
                 </Button>
                 <Button
                   type="button"
-                  variant={permission === 'EDIT' ? 'primary' : 'secondary'}
+                  variant="secondary"
                   size="sm"
-                  onClick={() => setPermission('EDIT')}
+                  className="min-w-0 justify-center gap-2 whitespace-nowrap px-3"
+                  onClick={handleShareSnapshot}
+                  loading={isSharingSnapshot || isTreeLoading}
                 >
-                  Can edit
+                  <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                  <span className="truncate">WhatsApp</span>
                 </Button>
               </div>
             </div>
-            <Button
-              className="w-full gap-2"
-              onClick={handleInvite}
-              loading={createShare.isPending}
-              disabled={!email.trim()}
-            >
-              <Share2 className="h-4 w-4" />
-              Send invite
-            </Button>
+
+            <div className="space-y-3 rounded-xl border border-border-soft p-4">
+              <div>
+                <Input
+                  label="Email address"
+                  placeholder="colleague@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleInvite();
+                  }}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-text-secondary">
+                  Permission
+                </label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={permission === 'VIEW' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setPermission('VIEW')}
+                  >
+                    Can view
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={permission === 'EDIT' ? 'primary' : 'secondary'}
+                    size="sm"
+                    onClick={() => setPermission('EDIT')}
+                  >
+                    Can edit
+                  </Button>
+                </div>
+              </div>
+              <Button
+                className="w-full gap-2"
+                onClick={handleInvite}
+                loading={createShare.isPending}
+                disabled={!email.trim()}
+              >
+                <Share2 className="h-4 w-4" />
+                Send invite
+              </Button>
+              <p className="text-xs leading-relaxed text-text-muted">
+                The tree appears in their dashboard only after they accept the email invite.
+              </p>
+            </div>
           </div>
         )}
 

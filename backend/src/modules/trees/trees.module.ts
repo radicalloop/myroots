@@ -7,11 +7,12 @@ import { TreeService } from './tree.service';
 import { TreesController } from './trees.controller';
 import { TreeShareController } from './tree-share.controller';
 import { SharedTreesController } from './shared-trees.controller';
+import { ShareEmailService } from './share-email.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Tree, TreeShare, User])],
   controllers: [TreesController, TreeShareController, SharedTreesController],
-  providers: [TreeService],
+  providers: [TreeService, ShareEmailService],
   exports: [TreeService],
 })
 export class TreesModule {}

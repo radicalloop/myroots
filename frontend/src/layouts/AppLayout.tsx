@@ -1,4 +1,4 @@
-import { Link, Navigate, Outlet } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { Trees } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLogout } from "@/hooks/useLogout";
@@ -11,9 +11,10 @@ import { ROUTES } from "@/constants/app.constants";
 export function ProtectedRoute() {
   const { isAuthenticated, clearAuth } = useAuth();
   const { isLoading, isError } = useMe();
+  const location = useLocation();
 
   if (!isAuthenticated) {
-    return <Navigate to={ROUTES.LOGIN} replace />;
+    return <Navigate to={ROUTES.LOGIN} replace state={{ from: location }} />;
   }
 
   if (isLoading) {

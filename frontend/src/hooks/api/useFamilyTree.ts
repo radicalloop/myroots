@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   login,
   signup,
@@ -73,6 +73,10 @@ export function useMe() {
 export function useLogin() {
   const { setAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
+    ROUTES.DASHBOARD;
 
   return useMutation({
     mutationFn: login,
@@ -80,7 +84,7 @@ export function useLogin() {
       const { accessToken, user } = res.data.data;
       setAuth(accessToken, user);
       toast.success('Logged in successfully');
-      navigate(ROUTES.DASHBOARD);
+      navigate(redirectTo);
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -89,6 +93,10 @@ export function useLogin() {
 export function useSignup() {
   const { setAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectTo =
+    (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ??
+    ROUTES.DASHBOARD;
 
   return useMutation({
     mutationFn: signup,
@@ -96,7 +104,7 @@ export function useSignup() {
       const { accessToken, user } = res.data.data;
       setAuth(accessToken, user);
       toast.success('Account created successfully');
-      navigate(ROUTES.DASHBOARD);
+      navigate(redirectTo);
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });
@@ -444,7 +452,7 @@ export function useCreateTreeShare(treeId: string) {
       queryClient.invalidateQueries({
         queryKey: QUERY_KEYS.TREE_SHARES(treeId),
       });
-      toast.success('Share invite created');
+      toast.success('Share invite sent');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });

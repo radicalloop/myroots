@@ -8,6 +8,7 @@ import { LoginPage } from '@/pages/LoginPage';
 import { SignupPage } from '@/pages/SignupPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { TreePageWrapper } from '@/pages/TreePageWrapper';
+import { PublicTreePage } from '@/pages/PublicTreePage';
 import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
 import { ROUTES } from '@/constants/app.constants';
 
@@ -35,6 +36,7 @@ export function App() {
               <Route path="/accept-share/:token" element={<AcceptInvitePage />} />
             </Route>
             <Route element={<TreeWorkspaceLayout />}>
+              <Route path="/public/tree/:treeId" element={<PublicTreePage />} />
               <Route path="/tree/:treeId" element={<TreePageWrapper />} />
             </Route>
             <Route path="*" element={<Navigate to={ROUTES.DASHBOARD} replace />} />

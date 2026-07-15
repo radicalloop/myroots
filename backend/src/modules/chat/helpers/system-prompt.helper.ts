@@ -165,7 +165,7 @@ Example — bulk-update everyone's last name:
     {"action":"BULK_UPDATE_PERSONS","target_name":null,"person":{"last_name":"Test"}}
   ],
   "focus_person_name": null,
-  "reply": "This will change the last name of all people in this tree to "Test." Do you want to continue?"
+  "reply": "This will change the last name of all people in this tree to Test. Do you want to continue?"
 }
 
 Example — user asks to delete/remove a person (refuse politely):

@@ -222,14 +222,36 @@ export function extractJsonFromAiResponse(raw: string): unknown | null {
   }
 
   // Strategy 3: Balanced brace matching — find the first '{' and its
-  // matching '}', ignoring text before and after. This correctly handles
-  // nested objects (unlike lastIndexOf('}')).
+  // matching '}', ignoring text before and after. Track strings so braces
+  // inside reply text do not prematurely end the object.
   const objStart = trimmed.indexOf('{');
   if (objStart !== -1) {
     let depth = 0;
+    let inString = false;
+    let escaped = false;
+
     for (let i = objStart; i < trimmed.length; i++) {
-      if (trimmed[i] === '{') depth++;
-      if (trimmed[i] === '}') {
+      const char = trimmed[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === '{') depth++;
+      if (char === '}') {
         depth--;
         if (depth === 0) {
           try {

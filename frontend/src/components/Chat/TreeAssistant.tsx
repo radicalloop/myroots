@@ -145,21 +145,21 @@ export function TreeAssistant({
         </div>
       )}
 
-      <div className="flex items-center gap-3 border-b border-border-subtle px-5 py-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm">
-          <Sparkles className="h-5 w-5" aria-hidden="true" />
+      <div className="flex items-center gap-3 border-b border-border-subtle px-4 py-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm">
+          <Sparkles className="h-[18px] w-[18px]" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xl font-bold leading-tight text-text-primary">
+          <p className="truncate text-lg font-bold leading-tight text-text-primary">
             MyRoots Assistant
           </p>
           {treeName ? (
-            <p className="mt-0.5 truncate text-base leading-tight text-text-secondary">
+            <p className="mt-0.5 truncate text-sm leading-tight text-text-secondary">
               <span className="mr-2 inline-block h-2 w-2 rounded-full bg-brand-500 align-middle" />
               Viewing: {treeName}
             </p>
           ) : (
-            <p className="mt-0.5 text-base text-text-muted">Ready to help</p>
+            <p className="mt-0.5 text-sm text-text-muted">Ready to help</p>
           )}
         </div>
         {onClose && (
@@ -167,54 +167,54 @@ export function TreeAssistant({
             type="button"
             onClick={onClose}
             aria-label="Hide assistant"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warm-50 text-text-muted transition hover:bg-warm-100 hover:text-text-secondary"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-warm-50 text-text-muted transition hover:bg-warm-100 hover:text-text-secondary"
           >
-            <X className="h-5 w-5" aria-hidden="true" />
+            <X className="h-[18px] w-[18px]" aria-hidden="true" />
           </button>
         )}
       </div>
 
       <div
         ref={listRef}
-        className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-6"
+        className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-5"
       >
         {isDefaultState ? (
-          <div className="flex flex-col gap-5">
-            <div className="flex items-start gap-4">
-              <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
-                <Sparkles className="h-4 w-4" aria-hidden="true" />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
-              <div className="rounded-[22px] bg-warm-50 px-5 py-4 text-[17px] font-medium leading-relaxed text-text-primary">
+              <div className="rounded-[18px] bg-warm-50 px-4 py-3 text-sm font-medium leading-relaxed text-text-primary">
                 Hi! I can help you explore this tree — ask about people, add
                 someone new, or edit details.
               </div>
             </div>
 
-            <div className="ml-14 flex flex-wrap gap-2.5">
+            <div className="ml-11 flex flex-wrap gap-2">
               {DEFAULT_ACTIONS.map(({ label, icon: Icon, message }) => (
                 <button
                   key={label}
                   type="button"
                   onClick={() => fillPrompt(message)}
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-border-soft bg-white px-4 text-sm font-bold text-text-primary shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full border border-border-soft bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
                 >
-                  <Icon className="h-4 w-4 text-brand-600" aria-hidden="true" />
+                  <Icon className="h-3.5 w-3.5 text-brand-600" aria-hidden="true" />
                   {label}
                 </button>
               ))}
             </div>
 
-            <div className="ml-14">
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-text-muted">
+            <div className="ml-11">
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-text-muted">
                 Or try asking
               </p>
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2.5">
                 {DEFAULT_QUESTIONS.map(({ label, message }) => (
                   <button
                     key={label}
                     type="button"
                     onClick={() => sendPrompt(message)}
-                    className="rounded-[22px] border border-border-soft bg-white px-5 py-3 text-left text-lg font-medium leading-snug text-text-primary shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
+                    className="rounded-[18px] border border-border-soft bg-white px-4 py-2.5 text-left text-base font-medium leading-snug text-text-primary shadow-sm transition hover:border-brand-300 hover:bg-brand-50"
                   >
                     {label}
                   </button>

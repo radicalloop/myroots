@@ -56,10 +56,66 @@ function normalizeActionItem(value: unknown): AiActionItem {
   };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function hasDecisionShape(obj: Record<string, unknown>): boolean {
+  return (
+    Array.isArray(obj.actions) ||
+    ALLOWED_ACTIONS.includes(obj.action as ChatAction) ||
+    typeof obj.reply === 'string'
+  );
+}
+
+function extractReplyText(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function unwrapDecisionObject(
+  parsed: unknown,
+): Record<string, unknown> | string | null {
+  if (typeof parsed === 'string') {
+    return parsed;
+  }
+
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  if (hasDecisionShape(parsed)) {
+    return parsed;
+  }
+
+  for (const key of ['response', 'result', 'data', 'decision', 'output']) {
+    const unwrapped = unwrapDecisionObject(parsed[key]);
+    if (unwrapped) return unwrapped;
+  }
+
+  for (const key of ['answer', 'message', 'content', 'text']) {
+    const reply = extractReplyText(parsed[key]);
+    if (reply) return reply;
+  }
+
+  return null;
+}
+
+function buildPlainReplyDecision(raw: string): AiDecisionBatch {
+  return {
+    actions: [],
+    reply: raw.trim(),
+    focus_person_name: null,
+  };
+}
+
 export function parseAiDecision(raw: string): AiDecisionBatch {
   const parsed = extractJsonFromAiResponse(raw);
+  const decisionInput = unwrapDecisionObject(parsed);
 
-  if (!parsed || parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  if (!decisionInput) {
     // Check if the raw output contains destructive action language
     const destructiveAction = detectDestructiveInRaw(raw);
     if (destructiveAction) {
@@ -70,6 +126,10 @@ export function parseAiDecision(raw: string): AiDecisionBatch {
       };
     }
 
+    if (raw.trim()) {
+      return buildPlainReplyDecision(raw);
+    }
+
     return {
       actions: [],
       reply:
@@ -78,7 +138,15 @@ export function parseAiDecision(raw: string): AiDecisionBatch {
     };
   }
 
-  const obj = parsed as Record<string, unknown>;
+  if (typeof decisionInput === 'string') {
+    if (detectDestructiveInRaw(decisionInput)) {
+      return { actions: [], reply: DELETE_REFUSAL_REPLY, focus_person_name: null };
+    }
+
+    return buildPlainReplyDecision(decisionInput);
+  }
+
+  const obj = decisionInput;
 
   // Check for destructive action before normal shape validation
   if (Array.isArray(obj.actions)) {
@@ -95,20 +163,6 @@ export function parseAiDecision(raw: string): AiDecisionBatch {
 
   if (isDestructiveAction(obj.action)) {
     return { actions: [], reply: DELETE_REFUSAL_REPLY, focus_person_name: null };
-  }
-
-  const hasExpectedShape =
-    Array.isArray(obj.actions) ||
-    ALLOWED_ACTIONS.includes(obj.action as ChatAction) ||
-    typeof obj.reply === 'string';
-
-  if (!hasExpectedShape) {
-    return {
-      actions: [],
-      reply:
-        "Sorry, I couldn't understand the assistant's response. Please try rephrasing your request.",
-      focus_person_name: null,
-    };
   }
 
   const reply =

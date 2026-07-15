@@ -5,24 +5,29 @@ import { CalendarDays } from "lucide-react";
 import { PersonAvatar } from "@/components/PersonAvatar/PersonAvatar";
 import { PersonNodeData } from "./layoutTree";
 import { PEDIGREE_NODE_HEIGHT, PEDIGREE_NODE_WIDTH } from "./pedigreeLayout";
+import { getPersonCardTheme } from "./person-card-theme";
+import {
+  PersonCardFemaleDecorations,
+  PersonCardHeartDivider,
+} from "./PersonCardDecorations";
 
 function PersonFlowNodeComponent({ data }: NodeProps) {
   const nodeData = data as PersonNodeData;
   const { person, highlighted, assistantHighlighted } = nodeData;
   const lastName = person.last_name === "-" ? "" : person.last_name;
   const birthYear = person.birth_date?.slice(0, 4);
+  const theme = getPersonCardTheme(person.gender);
 
   return (
     <div
       data-tree-node-card
       style={{ width: PEDIGREE_NODE_WIDTH, minHeight: PEDIGREE_NODE_HEIGHT }}
       className={clsx(
-        "group relative cursor-pointer rounded-[28px] border bg-white px-7 pb-7 pt-8 text-center transition-all duration-200",
+        "group relative cursor-pointer rounded-[28px] border px-7 pb-7 pt-8 text-center transition-all duration-200",
         "shadow-[0_1px_2px_rgba(31,41,35,0.04),0_20px_45px_rgba(31,41,35,0.08)]",
         "hover:-translate-y-0.5 hover:shadow-[0_24px_52px_rgba(31,41,35,0.12)]",
-        highlighted
-          ? "border-2 border-brand-500 shadow-[0_0_0_5px_rgba(16,185,129,0.14),0_24px_52px_rgba(31,41,35,0.12)]"
-          : "border-[#edf0eb] hover:border-brand-200",
+        theme.card,
+        highlighted ? theme.cardHighlighted : theme.cardHoverBorder,
         assistantHighlighted && "pt-10",
       )}
     >
@@ -31,6 +36,8 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
           FROM ASSISTANT
         </div>
       )}
+
+      {theme.showDecorations && <PersonCardFemaleDecorations />}
 
       <Handle
         type="target"
@@ -41,10 +48,8 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
         <div
           className={clsx(
             "relative rounded-full p-2 transition-all duration-200",
-            "bg-[conic-gradient(from_150deg,#dcefd0_0deg,#d8f1e6_360deg,transparent_360deg)]",
-            highlighted
-              ? "ring-4 ring-brand-100"
-              : "group-hover:ring-4 group-hover:ring-brand-50",
+            theme.ring,
+            highlighted ? theme.ringHighlighted : theme.ringHover,
           )}
         >
           <PersonAvatar
@@ -54,8 +59,14 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
             lastName={person.last_name}
             profileImagePath={person.profile_image_path}
             size="tree"
+            variant={theme.avatarVariant}
           />
-          <span className="absolute bottom-5 right-2 h-4 w-4 rounded-full border-2 border-white bg-[#3690b8] shadow-sm" />
+          <span
+            className={clsx(
+              "absolute bottom-5 right-2 h-4 w-4 rounded-full border-2 border-white shadow-sm",
+              theme.statusDot,
+            )}
+          />
         </div>
         <div className="mt-5 w-full">
           <p
@@ -68,14 +79,23 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
           {lastName && (
             <p
               data-tree-node-years
-              className="mt-2 truncate font-serif text-xl leading-none text-[#969d90] capitalize"
+              className={clsx(
+                "mt-2 truncate font-serif text-xl leading-none capitalize",
+                theme.lastName,
+              )}
               title={lastName}
             >
               {lastName}
             </p>
           )}
+          {theme.showHeartDivider && <PersonCardHeartDivider />}
           {birthYear && (
-            <div className="mt-5 inline-flex h-9 items-center gap-2 rounded-full bg-[#f1f4f0] px-5 text-base font-bold text-[#68806b]">
+            <div
+              className={clsx(
+                "mt-5 inline-flex h-9 items-center gap-2 rounded-full px-5 text-base font-bold",
+                theme.birthBadge,
+              )}
+            >
               <CalendarDays className="h-4 w-4 stroke-[1.8]" />
               <span className="tabular-nums">B. {birthYear}</span>
             </div>

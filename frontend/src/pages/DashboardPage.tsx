@@ -58,6 +58,9 @@ function TreeCard({
 }) {
   const isOwner = !tree.role || tree.role === "OWNER";
 
+  console.log(tree, "tree");
+  console.log(isOwner, "isOwner");
+
   return (
     <Card hover padding="md" className="group flex flex-col">
       <div className="flex items-start gap-3">
@@ -141,7 +144,7 @@ export function DashboardPage() {
   const treeCount = trees?.length ?? 0;
   const hasTrees = !isLoading && treeCount > 0;
   const showEmptyState = !isLoading && treeCount === 0 && !showForm;
-  const showNewTreeButton = hasTrees;
+  const showNewTreeButton = hasTrees && !showForm;
 
   const {
     register,
@@ -181,17 +184,11 @@ export function DashboardPage() {
         </div>
         {showNewTreeButton && (
           <Button
-            onClick={() => setShowForm((v) => !v)}
+            onClick={() => setShowForm(true)}
             className="gap-2 self-start sm:self-auto"
           >
-            {showForm ? (
-              "Cancel"
-            ) : (
-              <>
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                New tree
-              </>
-            )}
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New tree
           </Button>
         )}
       </div>
@@ -210,6 +207,7 @@ export function DashboardPage() {
               placeholder="e.g. The Smith Family"
               {...register("name")}
               error={errors.name?.message}
+              required
             />
             <Input
               label="Description"
@@ -220,13 +218,18 @@ export function DashboardPage() {
               <Button type="submit" loading={createTreeMutation.isPending}>
                 Create tree
               </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setShowForm(false)}
-              >
-                Cancel
-              </Button>
+              {hasTrees && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setShowForm(false);
+                    reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+              )}
             </div>
           </form>
         </Card>

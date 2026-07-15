@@ -3,6 +3,8 @@ import clsx from "clsx";
 import { usePersonImageUrl } from "@/hooks/api/usePersonImageUrl";
 import { Skeleton } from "@/components/ui/Skeleton";
 
+type PersonAvatarVariant = "default" | "female";
+
 interface PersonAvatarProps {
   treeId: string;
   personId: string;
@@ -10,6 +12,7 @@ interface PersonAvatarProps {
   lastName: string;
   profileImagePath: string | null;
   size?: "sm" | "md" | "lg" | "xl" | "tree";
+  variant?: PersonAvatarVariant;
 }
 
 const sizeClasses = {
@@ -27,6 +30,7 @@ export function PersonAvatar({
   lastName,
   profileImagePath,
   size = "sm",
+  variant = "default",
 }: PersonAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -77,9 +81,11 @@ export function PersonAvatar({
       data-tree-avatar
       className={clsx(
         "flex items-center justify-center rounded-full font-semibold",
-        size === "tree"
-          ? "bg-white font-serif text-brand-700"
-          : "bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 shadow-sm ring-2 ring-white",
+        size === "tree" && variant === "female"
+          ? "bg-white font-serif text-pink-500"
+          : size === "tree"
+            ? "bg-white font-serif text-brand-700"
+            : "bg-gradient-to-br from-brand-100 to-brand-200 text-brand-700 shadow-sm ring-2 ring-white",
         sizeClasses[size],
       )}
     >

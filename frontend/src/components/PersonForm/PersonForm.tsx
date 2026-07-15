@@ -1,17 +1,17 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   personSchema,
   PersonFormValues,
-} from '@/validations/family-tree.validation';
-import { Gender, Person, TreePersonNode } from '@/types/api.types';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import clsx from 'clsx';
-import { todayInputDate } from '@/utils/person.utils';
-import { CalendarDays, ChevronDown, HeartPulse, UserRound } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
+} from "@/validations/family-tree.validation";
+import { Gender, Person, TreePersonNode } from "@/types/api.types";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import clsx from "clsx";
+import { todayInputDate } from "@/utils/person.utils";
+import { CalendarDays, ChevronDown, HeartPulse, UserRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 interface PersonFormProps {
   defaultValues?: Partial<PersonFormValues>;
@@ -21,9 +21,9 @@ interface PersonFormProps {
 }
 
 const fieldClassName = clsx(
-  'w-full rounded-xl border border-border-soft bg-white px-3.5 py-2.5 text-sm text-text-primary',
-  'outline-none transition-all duration-200 hover:border-warm-300',
-  'focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15',
+  "w-full rounded-xl border border-border-soft bg-white px-3.5 py-2.5 text-sm text-text-primary",
+  "outline-none transition-all duration-200 hover:border-warm-300",
+  "focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15",
 );
 
 function formatGenderLabel(gender: Gender): string {
@@ -58,7 +58,7 @@ export function PersonForm({
   defaultValues,
   onSubmit,
   loading,
-  submitLabel = 'Save',
+  submitLabel = "Save",
 }: PersonFormProps) {
   const {
     register,
@@ -67,14 +67,14 @@ export function PersonForm({
   } = useForm<PersonFormValues>({
     resolver: zodResolver(personSchema),
     defaultValues: {
-      first_name: '',
-      last_name: '',
+      first_name: "",
+      last_name: "",
       gender: Gender.MALE,
-      birth_date: '',
-      death_date: '',
-      birth_place: '',
-      current_place: '',
-      health_note: '',
+      birth_date: "",
+      death_date: "",
+      birth_place: "",
+      current_place: "",
+      health_note: "",
       ...defaultValues,
     },
   });
@@ -89,13 +89,15 @@ export function PersonForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Input
               label="First name"
-              {...register('first_name')}
+              {...register("first_name")}
               error={errors.first_name?.message}
+              required
             />
             <Input
               label="Last name"
-              {...register('last_name')}
+              {...register("last_name")}
               error={errors.last_name?.message}
+              required
             />
           </div>
 
@@ -109,11 +111,8 @@ export function PersonForm({
             <div className="relative">
               <select
                 id="gender"
-                className={clsx(
-                  fieldClassName,
-                  'appearance-none pr-10',
-                )}
-                {...register('gender')}
+                className={clsx(fieldClassName, "appearance-none pr-10")}
+                {...register("gender")}
               >
                 {Object.values(Gender).map((g) => (
                   <option key={g} value={g}>
@@ -135,37 +134,37 @@ export function PersonForm({
               label="Birth date"
               type="date"
               max={todayInputDate()}
-              {...register('birth_date')}
+              {...register("birth_date")}
               error={errors.birth_date?.message}
             />
             <Input
               label="Death date"
               type="date"
               max={todayInputDate()}
-              {...register('death_date')}
+              {...register("death_date")}
               error={errors.death_date?.message}
             />
           </div>
           <Input
             label="Birth place"
             placeholder="City, Country"
-            {...register('birth_place')}
+            {...register("birth_place")}
           />
           <Input
             label="Current place"
             placeholder="City, Country"
-            {...register('current_place')}
+            {...register("current_place")}
           />
         </FormSection>
 
         <FormSection icon={HeartPulse} title="Health note">
           <textarea
-            {...register('health_note')}
+            {...register("health_note")}
             placeholder="Any relevant health information..."
             rows={3}
             className={clsx(
               fieldClassName,
-              'resize-y placeholder:text-text-muted',
+              "resize-y placeholder:text-text-muted",
             )}
           />
         </FormSection>
@@ -187,10 +186,10 @@ export function personToFormValues(
     first_name: person.first_name,
     last_name: person.last_name,
     gender: person.gender,
-    birth_date: person.birth_date ?? '',
-    death_date: person.death_date ?? '',
-    birth_place: person.birth_place ?? '',
-    current_place: person.current_place ?? '',
-    health_note: person.health_note ?? '',
+    birth_date: person.birth_date ?? "",
+    death_date: person.death_date ?? "",
+    birth_place: person.birth_place ?? "",
+    current_place: person.current_place ?? "",
+    health_note: person.health_note ?? "",
   };
 }

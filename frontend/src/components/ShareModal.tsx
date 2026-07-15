@@ -1,20 +1,21 @@
-import { useMemo, useState } from 'react';
-import { Share2, Trash2, Copy, Check, Link2, MessageCircle } from 'lucide-react';
-import { toast } from 'sonner';
-import { Modal } from '@/components/ui/Modal';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
+import { useMemo, useState } from "react";
+import { Check, Copy, Link2, MessageCircle, Share2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Tooltip } from "@/components/ui/Tooltip";
 import {
   useTreeShares,
   useCreateTreeShare,
   useUpdateTreeShare,
   useDeleteTreeShare,
   useTreeView,
-} from '@/hooks/api/useFamilyTree';
-import { ROUTES } from '@/constants/app.constants';
-import { TreePersonNode } from '@/types/api.types';
-import { shareTreeSnapshot } from '@/utils/share-tree-snapshot';
+} from "@/hooks/api/useFamilyTree";
+import { ROUTES } from "@/constants/app.constants";
+import { TreePersonNode } from "@/types/api.types";
+import { shareTreeSnapshot } from "@/utils/share-tree-snapshot";
 
 interface ShareModalProps {
   treeId: string;
@@ -48,13 +49,19 @@ function countRelatives(root: TreePersonNode | null | undefined): number {
   return visited.size;
 }
 
-function statusVariant(status: string): 'success' | 'warning' | 'default' {
-  if (status === 'ACCEPTED') return 'success';
-  if (status === 'PENDING') return 'warning';
-  return 'default';
+function statusVariant(status: string): "success" | "warning" | "default" {
+  if (status === "ACCEPTED") return "success";
+  if (status === "PENDING") return "warning";
+  return "default";
 }
 
-export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareModalProps) {
+export function ShareModal({
+  treeId,
+  treeName,
+  isOwner,
+  open,
+  onClose,
+}: ShareModalProps) {
   const { data: shares, isLoading } = useTreeShares(treeId);
   const { data: treeView, isLoading: isTreeLoading } = useTreeView(treeId, {
     enabled: open && isOwner,
@@ -62,8 +69,8 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
   const createShare = useCreateTreeShare(treeId);
   const updateShare = useUpdateTreeShare(treeId);
   const deleteShare = useDeleteTreeShare(treeId);
-  const [email, setEmail] = useState('');
-  const [permission, setPermission] = useState<'VIEW' | 'EDIT'>('VIEW');
+  const [email, setEmail] = useState("");
+  const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [publicLinkCopied, setPublicLinkCopied] = useState(false);
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
@@ -77,7 +84,7 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
     if (!email.trim()) return;
     createShare.mutate(
       { sharedWithEmail: email.trim(), permission },
-      { onSuccess: () => setEmail('') },
+      { onSuccess: () => setEmail("") },
     );
   };
 
@@ -91,10 +98,10 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
     try {
       await navigator.clipboard.writeText(publicTreeUrl);
       setPublicLinkCopied(true);
-      toast.success('View-only link copied');
+      toast.success("View-only link copied");
       setTimeout(() => setPublicLinkCopied(false), 2000);
     } catch {
-      toast.error('Could not copy link');
+      toast.error("Could not copy link");
     }
   };
 
@@ -109,13 +116,13 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
         shareUrl: publicTreeUrl,
       });
 
-      if (mode === 'whatsapp') {
-        toast.success('Snapshot downloaded and WhatsApp opened');
+      if (mode === "whatsapp") {
+        toast.success("Snapshot downloaded and WhatsApp opened");
       }
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
+      if (error instanceof DOMException && error.name === "AbortError") return;
       toast.error(
-        error instanceof Error ? error.message : 'Could not share snapshot',
+        error instanceof Error ? error.message : "Could not share snapshot",
       );
     } finally {
       setIsSharingSnapshot(false);
@@ -156,7 +163,7 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
                     <Link2 className="h-4 w-4" aria-hidden="true" />
                   )}
                   <span className="truncate">
-                    {publicLinkCopied ? 'Copied' : 'View-only link'}
+                    {publicLinkCopied ? "Copied" : "View-only link"}
                   </span>
                 </Button>
                 <Button
@@ -181,7 +188,7 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleInvite();
+                    if (e.key === "Enter") handleInvite();
                   }}
                 />
               </div>
@@ -192,17 +199,17 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
                 <div className="flex gap-2">
                   <Button
                     type="button"
-                    variant={permission === 'VIEW' ? 'primary' : 'secondary'}
+                    variant={permission === "VIEW" ? "primary" : "secondary"}
                     size="sm"
-                    onClick={() => setPermission('VIEW')}
+                    onClick={() => setPermission("VIEW")}
                   >
                     Can view
                   </Button>
                   <Button
                     type="button"
-                    variant={permission === 'EDIT' ? 'primary' : 'secondary'}
+                    variant={permission === "EDIT" ? "primary" : "secondary"}
                     size="sm"
-                    onClick={() => setPermission('EDIT')}
+                    onClick={() => setPermission("EDIT")}
                   >
                     Can edit
                   </Button>
@@ -237,23 +244,25 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
           {shares?.map((share) => (
             <div
               key={share.id}
-              className="flex items-center justify-between rounded-lg px-3 py-2.5 hover:bg-bg-muted"
+              className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted md:px-3"
             >
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text-primary">
-                  {share.sharedWithEmail}
-                </p>
+              <div className="min-w-0 flex-1 overflow-hidden">
+                <Tooltip content={share.sharedWithEmail} mobileOnly>
+                  <p className="text-sm font-medium text-text-primary max-sm:truncate">
+                    {share.sharedWithEmail}
+                  </p>
+                </Tooltip>
                 <div className="mt-1 flex items-center gap-1.5">
                   <Badge variant={statusVariant(share.status)}>
                     {share.status}
                   </Badge>
                   <span className="text-xs text-text-muted">
-                    {share.permission === 'EDIT' ? 'Editor' : 'Viewer'}
+                    {share.permission === "EDIT" ? "Editor" : "Viewer"}
                   </span>
                 </div>
               </div>
-              <div className="flex gap-1">
-                {share.status === 'PENDING' && (
+              <div className="flex shrink-0 items-center gap-1">
+                {share.status === "PENDING" && (
                   <Button
                     variant="secondary"
                     size="sm"
@@ -275,7 +284,9 @@ export function ShareModal({ treeId, treeName, isOwner, open, onClose }: ShareMo
                       onChange={(e) =>
                         updateShare.mutate({
                           shareId: share.id,
-                          data: { permission: e.target.value as 'VIEW' | 'EDIT' },
+                          data: {
+                            permission: e.target.value as "VIEW" | "EDIT",
+                          },
                         })
                       }
                       className="h-8 rounded-md border border-border-soft bg-bg-elevated px-2 text-xs text-text-primary"

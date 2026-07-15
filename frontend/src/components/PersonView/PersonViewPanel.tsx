@@ -10,7 +10,6 @@ import {
   Plus,
   Trash2,
   UserRoundPlus,
-  X,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";

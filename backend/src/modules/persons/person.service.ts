@@ -17,7 +17,7 @@ import {
 } from './dto/person.dto';
 import {
   mapPersonToResponse,
-  buildPersonTree,
+  buildPersonChildren,
   buildSpouseMap,
   buildSpouseNode,
   findRootPerson,
@@ -378,7 +378,12 @@ export class PersonService {
       ? await this.enrichPersonTree({
           ...mapPersonToResponse(rootPerson),
           spouse: buildSpouseNode(rootPerson.id, persons, spousesMap),
-          children: buildPersonTree(persons, rootPerson.id, spousesMap),
+          children: buildPersonChildren(
+            rootPerson,
+            persons,
+            spousesMap,
+            new Set([rootPerson.id]),
+          ),
         })
       : null;
 
@@ -664,7 +669,12 @@ export class PersonService {
       ? await this.enrichPersonTree({
           ...mapPersonToResponse(rootPerson),
           spouse: buildSpouseNode(rootPerson.id, persons, spousesMap),
-          children: buildPersonTree(persons, rootPerson.id, spousesMap),
+          children: buildPersonChildren(
+            rootPerson,
+            persons,
+            spousesMap,
+            new Set([rootPerson.id]),
+          ),
         })
       : null;
 

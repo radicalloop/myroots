@@ -28,6 +28,7 @@ import { findPersonInTree } from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
 import { ShareModal } from "@/components/ShareModal";
+import { cn } from "@/lib/utils";
 import { TreePageModals, TreePanelMode } from "./TreePageModals";
 import { TreePageToolbar } from "./TreePageToolbar";
 
@@ -195,13 +196,27 @@ export function TreePage() {
           onSearchSelect={handleSearchSelect}
           onShare={() => setShareModalOpen(true)}
         />
-        <div className="min-h-0 min-w-0 flex-1 p-3 pt-[154px] sm:p-6 sm:pt-28">
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-1 p-3 sm:p-6 sm:pt-28",
+            treeView.root ? "pt-[154px]" : "pt-28",
+          )}
+        >
           <FamilyTreeView
             ref={treeViewRef}
             root={treeView.root}
             onNodeClick={handleNodeClick}
             immersive
             centerOnInitialLoad
+            emptyStateAction={
+              canEdit && !treeView.root
+                ? {
+                    label: "Add root person",
+                    onClick: openAddRoot,
+                    className: "w-full max-w-xs sm:hidden",
+                  }
+                : undefined
+            }
           />
         </div>
       </section>

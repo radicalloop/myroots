@@ -144,6 +144,13 @@ export function TreeAssistantComposer({
     });
   };
 
+  const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    onSubmit(event);
+    requestAnimationFrame(() => {
+      focusChatInput(inputRef);
+    });
+  };
+
   return (
     <div className="min-w-0 space-y-3 border-t border-border-subtle px-4 py-3">
       <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-3 py-3">
@@ -206,7 +213,7 @@ export function TreeAssistantComposer({
       )}
 
       <form
-        onSubmit={onSubmit}
+        onSubmit={handleFormSubmit}
         className={clsx(
           "flex w-full min-w-0 gap-2",
           input.includes("\n") ? "items-end" : "items-center",
@@ -280,7 +287,6 @@ export function TreeAssistantComposer({
           placeholder="Ask anything..."
           rows={1}
           className="min-h-11 max-h-28 min-w-0 flex-1 resize-none rounded-xl border border-border-soft bg-white px-3.5 py-2.5 text-sm leading-5 outline-none transition scrollbar-none placeholder:text-text-muted focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15 [&::-webkit-scrollbar]:hidden"
-          disabled={isSending}
         />
         <Button
           type="submit"

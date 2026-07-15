@@ -24,7 +24,10 @@ import { PersonFormValues } from "@/validations/family-tree.validation";
 import { TreePersonNode, UpdatePersonPayload } from "@/types/api.types";
 import { ROUTES } from "@/constants/app.constants";
 import { toPersonPayload, toAddParentPayload } from "@/utils/person.utils";
-import { findPersonInTree, getFamilyChildrenForPerson } from "@/utils/tree.utils";
+import {
+  findPersonInTree,
+  getFamilyChildrenForPerson,
+} from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
 import { ShareModal } from "@/components/ShareModal";

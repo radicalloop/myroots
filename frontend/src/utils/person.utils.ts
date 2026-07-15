@@ -39,6 +39,12 @@ export function getPersonLabel(person: TreePersonNode): string {
   return `${person.first_name} ${person.last_name}`;
 }
 
+export function getSpouseDefaultGender(personGender: Gender): Gender {
+  if (personGender === Gender.MALE) return Gender.FEMALE;
+  if (personGender === Gender.FEMALE) return Gender.MALE;
+  return Gender.MALE;
+}
+
 export function toPersonPayload(values: PersonFormValues): CreatePersonPayload {
   return {
     first_name: values.first_name.trim(),

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Download, MessageCircle, MoveLeft, Share2 } from "lucide-react";
+import { Download, MessageCircle, MoveLeft, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { PersonSearch } from "@/components/TreeView/PersonSearch";
@@ -25,6 +25,7 @@ interface TreePageToolbarProps {
   onDownloadPdf: () => void;
   onAddRoot: () => void;
   onSearchSelect: (person: TreePersonNode) => void;
+  onShare?: () => void;
   publicMode?: boolean;
 }
 
@@ -85,17 +86,11 @@ export function TreePageToolbar({
   onDownloadPdf,
   onAddRoot,
   onSearchSelect,
+  onShare,
   publicMode = false,
 }: TreePageToolbarProps) {
-  const [copied, setCopied] = useState(false);
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const counts = useMemo(() => countTreePeople(root), [root]);
-
-  const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(window.location.href);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
   const handleShareSnapshot = async () => {
     if (counts.total === 0) return;
@@ -120,6 +115,14 @@ export function TreePageToolbar({
       setIsSharingSnapshot(false);
     }
   };
+
+  const showSearch = Boolean(root);
+  const showAddRoot = !publicMode && !root && canEdit;
+  const showActionsBar = showSearch || showAddRoot;
+  const mobileActionBtnClass =
+    "h-10 w-10 shrink-0 rounded-xl border-border-soft bg-white text-text-primary !px-0 shadow-sm sm:h-11 sm:w-auto sm:!px-5";
+  const actionIconClass = "h-4 w-4 shrink-0 text-text-primary";
+
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-8 sm:py-5">
       <div className="pointer-events-auto rounded-2xl border border-white/70 bg-white/90 px-3.5 py-3 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:min-w-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none sm:backdrop-blur-0">
@@ -149,52 +152,54 @@ export function TreePageToolbar({
         )}
       </div>
 
-      {!publicMode && (
-        <div className="pointer-events-auto flex w-full items-stretch gap-2 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:w-auto sm:shrink-0 sm:flex-wrap sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
-          {root ? (
-            <>
+      {showActionsBar && (
+        <div className="pointer-events-auto flex w-full flex-col gap-2 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0">
+          {showSearch && root ? (
+            <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-stretch">
               <PersonSearch
                 root={root}
                 onSelect={onSearchSelect}
-                className="min-w-0 flex-1 max-w-none sm:w-72 sm:flex-none sm:max-w-none lg:w-80"
+                className="w-full min-w-0 sm:w-72 sm:flex-none sm:max-w-none lg:w-80"
               />
-              <Button
-                variant="secondary"
-                onClick={handleCopyLink}
-                className="h-auto w-12 shrink-0 gap-2 rounded-xl border-white/70 bg-white !px-0 shadow-none sm:h-11 sm:w-auto sm:rounded-xl sm:border-border-soft sm:bg-white sm:!px-5 sm:shadow-sm"
-                aria-label={copied ? "Link copied" : "Copy share link"}
-              >
-                {copied ? (
-                  <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
-                ) : (
-                  <Share2 className="h-4 w-4" aria-hidden="true" />
+              <div className="flex shrink-0 items-stretch gap-2">
+                {!publicMode && (
+                  <>
+                    {onShare && (
+                      <Button
+                        variant="secondary"
+                        onClick={onShare}
+                        className={mobileActionBtnClass}
+                        aria-label="Share tree"
+                      >
+                        <Share2 className={actionIconClass} aria-hidden="true" />
+                        <span className="hidden sm:inline">Share</span>
+                      </Button>
+                    )}
+                    <Button
+                      variant="secondary"
+                      onClick={handleShareSnapshot}
+                      loading={isSharingSnapshot}
+                      className={mobileActionBtnClass}
+                      aria-label="Share relatives card on WhatsApp"
+                    >
+                      <MessageCircle className={actionIconClass} aria-hidden="true" />
+                      <span className="hidden sm:inline">Card</span>
+                    </Button>
+                  </>
                 )}
-                <span className="hidden sm:inline">
-                  {copied ? "Copied" : "Share"}
-                </span>
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleShareSnapshot}
-                loading={isSharingSnapshot}
-                className="h-auto w-12 shrink-0 gap-2 rounded-xl border-white/70 bg-white !px-0 shadow-none sm:h-11 sm:w-auto sm:rounded-xl sm:border-border-soft sm:bg-white sm:!px-5 sm:shadow-sm"
-                aria-label="Share relatives card on WhatsApp"
-              >
-                <MessageCircle className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Card</span>
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={onDownloadPdf}
-                loading={isDownloadingPdf}
-                className="h-auto w-12 shrink-0 gap-2 rounded-xl border-white/70 bg-white !px-0 shadow-none sm:h-11 sm:w-auto sm:rounded-xl sm:border-border-soft sm:bg-white sm:!px-5 sm:shadow-sm"
-                aria-label="Download PDF"
-              >
-                <Download className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Download PDF</span>
-              </Button>
-            </>
-          ) : canEdit ? (
+                <Button
+                  variant="secondary"
+                  onClick={onDownloadPdf}
+                  loading={isDownloadingPdf}
+                  className={mobileActionBtnClass}
+                  aria-label="Download PDF"
+                >
+                  <Download className={actionIconClass} aria-hidden="true" />
+                  <span className="hidden sm:inline">Download PDF</span>
+                </Button>
+              </div>
+            </div>
+          ) : showAddRoot ? (
             <Button
               onClick={onAddRoot}
               className="w-full rounded-2xl shadow-md sm:w-auto"

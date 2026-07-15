@@ -27,6 +27,7 @@ import { toPersonPayload, toAddParentPayload } from "@/utils/person.utils";
 import { findPersonInTree } from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
+import { ShareModal } from "@/components/ShareModal";
 import { TreePageModals, TreePanelMode } from "./TreePageModals";
 import { TreePageToolbar } from "./TreePageToolbar";
 
@@ -54,6 +55,7 @@ export function TreePage() {
   );
   const [personPendingDelete, setPersonPendingDelete] =
     useState<TreePersonNode | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
   const treeViewRef = useRef<FamilyTreeViewHandle>(null);
 
   const activePerson = useMemo(() => {
@@ -191,6 +193,7 @@ export function TreePage() {
           onDownloadPdf={handleDownloadPdf}
           onAddRoot={openAddRoot}
           onSearchSelect={handleSearchSelect}
+          onShare={() => setShareModalOpen(true)}
         />
         <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
           <FamilyTreeView
@@ -278,6 +281,14 @@ export function TreePage() {
         onRequestDelete={() => {
           if (activePerson) setPersonPendingDelete(activePerson);
         }}
+      />
+
+      <ShareModal
+        treeId={treeId}
+        treeName={treeView.tree.name}
+        isOwner={!treeView.tree.role || treeView.tree.role === "OWNER"}
+        open={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
       />
     </div>
   );

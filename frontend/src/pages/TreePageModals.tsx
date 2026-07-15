@@ -7,6 +7,7 @@ import {
 } from "@/components/PersonView/PersonViewPanel";
 import { PersonFormValues } from "@/validations/family-tree.validation";
 import { TreePersonNode, UpdatePersonPayload } from "@/types/api.types";
+import { getSpouseDefaultGender } from "@/utils/person.utils";
 
 export type TreePanelMode =
   | "none"
@@ -176,6 +177,12 @@ export function TreePageModals({
 
         {panelMode === "add-spouse" && canEdit && (
           <PersonForm
+            key={activePerson?.id}
+            defaultValues={
+              activePerson
+                ? { gender: getSpouseDefaultGender(activePerson.gender) }
+                : undefined
+            }
             onSubmit={onCreateSpouse}
             loading={addSpouseLoading}
             submitLabel={activePerson

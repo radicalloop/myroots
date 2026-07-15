@@ -369,8 +369,6 @@ export function PersonViewBody({
   onAddParent,
   onAddChild,
   onAddSpouse,
-  onRemoveSpouse,
-  removeSpouseLoading,
   onUpdate,
   updateLoading,
 }: PersonViewBodyProps) {
@@ -472,8 +470,19 @@ export function PersonViewBody({
       <div>
         <div className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-text-muted">
           <span className="text-text-muted/80">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <svg
+              className="h-3 w-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
             </svg>
           </span>
           Health note
@@ -483,7 +492,7 @@ export function PersonViewBody({
             <textarea
               autoFocus
               disabled={updateLoading}
-              defaultValue={person.health_note ?? ''}
+              defaultValue={person.health_note ?? ""}
               rows={3}
               onBlur={(e) => saveField("health_note", e.target.value)}
               onKeyDown={(e) => {
@@ -494,15 +503,6 @@ export function PersonViewBody({
               }}
               className="w-full rounded-md border border-brand-200 bg-white px-2 py-1.5 text-xs font-medium text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60 resize-y"
             />
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setEditingField(null)}
-                className="rounded-md px-2 py-1 text-xs text-text-muted hover:bg-warm-100 transition"
-              >
-                Cancel
-              </button>
-            </div>
           </div>
         ) : (
           <button
@@ -573,15 +573,6 @@ export function PersonViewBody({
               <span className="text-[10px] font-semibold uppercase tracking-wide text-text-muted">
                 Spouse
               </span>
-              <button
-                type="button"
-                onClick={onRemoveSpouse}
-                disabled={removeSpouseLoading}
-                className="flex h-6 w-6 items-center justify-center rounded-md text-text-muted transition hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                aria-label="Remove spouse"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
             </div>
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">

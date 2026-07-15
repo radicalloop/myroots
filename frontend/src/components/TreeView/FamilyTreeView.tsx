@@ -54,6 +54,11 @@ interface FamilyTreeViewProps {
   onNodeClick: (person: TreePersonNode) => void;
   immersive?: boolean;
   centerOnInitialLoad?: boolean;
+  emptyStateAction?: {
+    label: string;
+    onClick: () => void;
+    className?: string;
+  };
 }
 
 interface TreeFlowProps {
@@ -275,6 +280,7 @@ export const FamilyTreeView = forwardRef<
   onNodeClick,
   immersive = false,
   centerOnInitialLoad = false,
+  emptyStateAction,
 }, ref) {
   if (!root) {
     return (
@@ -289,6 +295,7 @@ export const FamilyTreeView = forwardRef<
           icon={<TreePine className="h-8 w-8" />}
           title="Start your family tree"
           description="Add the first person to begin mapping your family heritage and building connections across generations."
+          action={emptyStateAction}
         />
       </div>
     );

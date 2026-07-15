@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, Link2, MessageCircle, Share2, Trash2 } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Link2,
+  MessageCircle,
+  Share2,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -158,7 +165,10 @@ export function ShareModal({
                   onClick={handleCopyPublicLink}
                 >
                   {publicLinkCopied ? (
-                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                    <Check
+                      className="h-4 w-4 text-green-600"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <Link2 className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -225,7 +235,8 @@ export function ShareModal({
                 Send invite
               </Button>
               <p className="text-xs leading-relaxed text-text-muted">
-                The tree appears in their dashboard only after they accept the email invite.
+                The tree appears in their dashboard only after they accept the
+                email invite.
               </p>
             </div>
           </div>
@@ -244,7 +255,7 @@ export function ShareModal({
           {shares?.map((share) => (
             <div
               key={share.id}
-              className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted md:px-3"
+              className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted"
             >
               <div className="min-w-0 flex-1 overflow-hidden">
                 <Tooltip content={share.sharedWithEmail} mobileOnly>

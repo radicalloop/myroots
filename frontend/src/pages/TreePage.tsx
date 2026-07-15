@@ -28,6 +28,7 @@ import { findPersonInTree } from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
 import { ShareModal } from "@/components/ShareModal";
+import { cn } from "@/lib/utils";
 import { TreePageModals, TreePanelMode } from "./TreePageModals";
 import { TreePageToolbar } from "./TreePageToolbar";
 
@@ -63,7 +64,8 @@ export function TreePage() {
     return findPersonInTree(treeView.root, selectedPersonId);
   }, [selectedPersonId, treeView?.root]);
 
-  const canEdit = !treeView || !treeView.tree.role || treeView.tree.role !== 'VIEW';
+  const canEdit =
+    !treeView || !treeView.tree.role || treeView.tree.role !== "VIEW";
 
   const openAddRoot = () => {
     if (!canEdit) return;
@@ -148,14 +150,13 @@ export function TreePage() {
       await treeViewRef.current?.downloadPdf(treeView.tree.name);
       toast.success("PDF downloaded successfully");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[PDF Download]', message);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error("[PDF Download]", message);
       toast.error(`Failed to download PDF: ${message}`);
     } finally {
       setIsDownloadingPdf(false);
     }
   };
-
 
   if (isLoading) {
     return (
@@ -195,13 +196,27 @@ export function TreePage() {
           onSearchSelect={handleSearchSelect}
           onShare={() => setShareModalOpen(true)}
         />
-        <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-1 p-3 sm:p-6 sm:pt-28",
+            treeView.root ? "pt-[154px]" : "pt-28",
+          )}
+        >
           <FamilyTreeView
             ref={treeViewRef}
             root={treeView.root}
             onNodeClick={handleNodeClick}
             immersive
             centerOnInitialLoad
+            emptyStateAction={
+              canEdit && !treeView.root
+                ? {
+                    label: "Add root person",
+                    onClick: openAddRoot,
+                    className: "w-full max-w-xs sm:hidden",
+                  }
+                : undefined
+            }
           />
         </div>
       </section>
@@ -234,12 +249,15 @@ export function TreePage() {
         }}
         onConfirmDelete={(mode) => {
           if (!personPendingDelete) return;
-          deletePersonMutation.mutate({ personId: personPendingDelete.id, mode }, {
-            onSuccess: () => {
-              setPersonPendingDelete(null);
-              closePanel();
+          deletePersonMutation.mutate(
+            { personId: personPendingDelete.id, mode },
+            {
+              onSuccess: () => {
+                setPersonPendingDelete(null);
+                closePanel();
+              },
             },
-          });
+          );
         }}
         onCreateRoot={handleCreateRoot}
         onCreateParent={handleCreateParent}

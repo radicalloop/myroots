@@ -99,13 +99,26 @@ export function TreePageToolbar({
       <div className="pointer-events-auto rounded-2xl border border-white/70 bg-white/90 px-3.5 py-3 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:min-w-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:shadow-none sm:backdrop-blur-0">
         {!publicMode ? (
           <>
-            <Link
-              to={ROUTES.DASHBOARD}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition-colors hover:text-brand-800 sm:text-sm sm:font-medium"
-            >
-              <MoveLeft size={14} />
-              Back to dashboard
-            </Link>
+            <div className="flex items-center justify-between gap-2">
+              <Link
+                to={ROUTES.DASHBOARD}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 transition-colors hover:text-brand-800 sm:text-sm sm:font-medium"
+              >
+                <MoveLeft size={14} />
+                Back to dashboard
+              </Link>
+              {showSearch && (
+                <Button
+                  variant="secondary"
+                  onClick={onDownloadPdf}
+                  loading={isDownloadingPdf}
+                  className={`${mobileActionBtnClass} sm:hidde !size-9`}
+                  aria-label="Download PDF"
+                >
+                  <Download className={actionIconClass} aria-hidden="true" />
+                </Button>
+              )}
+            </div>
             <TreeTitleEditor
               treeName={treeName}
               onSave={onSaveTreeName}
@@ -132,7 +145,7 @@ export function TreePageToolbar({
                 onSelect={onSearchSelect}
                 className="w-full min-w-0 sm:w-72 sm:flex-none sm:max-w-none lg:w-80"
               />
-              <div className="flex shrink-0 items-stretch gap-2">
+              <div className="hidden shrink-0 items-stretch gap-2 sm:flex">
                 <Button
                   variant="secondary"
                   onClick={onDownloadPdf}

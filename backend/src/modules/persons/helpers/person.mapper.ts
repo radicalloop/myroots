@@ -131,69 +131,58 @@ export function buildPersonTree(
     (p) => p.parentId === parentId && !visited.has(p.id),
   );
 
-  return matching.map((person) => {
-    if (visited.has(person.id)) {
-      logger.warn(
-        `Cycle detected: person ${person.id} already visited — skipping subtree`,
-      );
-      return {
-        ...mapPersonToResponse(person),
-        spouse: null,
-        children: [],
-      };
-    }
+  return matching.map((person) =>
+    buildPersonTreeNode(person, persons, spousesMap, visited),
+  );
+}
 
-    visited.add(person.id);
+export function buildPersonChildren(
+  person: Person,
+  persons: Person[],
+  spousesMap: Map<string, PersonResponse>,
+  visited: Set<string>,
+): TreePersonNode[] {
+  const childParentIds = new Set<string>([person.id]);
+  const spouseResponse = spousesMap.get(person.id);
 
-    const spouseResponse = spousesMap.get(person.id) ?? null;
+  if (spouseResponse) {
+    childParentIds.add(spouseResponse.id);
+  }
 
-    // Collect children: own children + spouse's children (merged under canonical parent).
-    // The canonical parent is the one we're currently building (this person).
-    // Children whose parent_id points to the spouse are also included here.
-    const ownChildIds = new Set(
-      persons
-        .filter((p) => p.parentId === person.id)
-        .map((p) => p.id),
+  return persons
+    .filter(
+      (candidate) =>
+        Boolean(candidate.parentId) &&
+        childParentIds.has(candidate.parentId!) &&
+        !visited.has(candidate.id),
+    )
+    .map((child) => buildPersonTreeNode(child, persons, spousesMap, visited));
+}
+
+function buildPersonTreeNode(
+  person: Person,
+  persons: Person[],
+  spousesMap: Map<string, PersonResponse>,
+  visited: Set<string>,
+): TreePersonNode {
+  if (visited.has(person.id)) {
+    logger.warn(
+      `Cycle detected: person ${person.id} already visited — skipping subtree`,
     );
-
-    const spouseChildren = spouseResponse
-      ? persons.filter(
-          (p) => p.parentId === spouseResponse.id && !ownChildIds.has(p.id),
-        )
-      : [];
-
-    // Build subtree for own children
-    const children = buildPersonTree(persons, person.id, spousesMap, visited);
-
-    // Build subtree for spouse's children (merged under this person)
-    for (const spouseChild of spouseChildren) {
-      if (visited.has(spouseChild.id)) {
-        logger.warn(
-          `Cycle detected via spouse: child ${spouseChild.id} already visited — skipping`,
-        );
-        continue;
-      }
-
-      const subtree = buildPersonTree(
-        persons,
-        spouseChild.parentId,
-        spousesMap,
-        visited,
-      );
-      // Attach spouse's child subtrees under this person
-      if (subtree.length > 0) {
-        children.push(subtree[0]); // spouse's child as root of its subtree
-      }
-    }
-
-    const spouseNode = buildSpouseNode(person.id, persons, spousesMap);
-
     return {
       ...mapPersonToResponse(person),
-      spouse: spouseNode,
-      children,
+      spouse: null,
+      children: [],
     };
-  });
+  }
+
+  visited.add(person.id);
+
+  return {
+    ...mapPersonToResponse(person),
+    spouse: buildSpouseNode(person.id, persons, spousesMap),
+    children: buildPersonChildren(person, persons, spousesMap, visited),
+  };
 }
 
 /**

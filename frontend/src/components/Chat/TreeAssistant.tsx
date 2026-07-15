@@ -13,7 +13,6 @@ interface TreeAssistantProps {
   onSend: (message: string, image?: ChatImagePayload) => void;
   treeName?: string;
   onClose?: () => void;
-  onQuickAddPerson?: () => void;
 }
 
 export function TreeAssistant({
@@ -22,7 +21,6 @@ export function TreeAssistant({
   onSend,
   treeName,
   onClose,
-  onQuickAddPerson,
 }: TreeAssistantProps) {
   const [input, setInput] = useState("");
   const [attachedImage, setAttachedImage] = useState<{
@@ -84,18 +82,6 @@ export function TreeAssistant({
     clearAttachedImage();
   };
 
-  const handleQuickAction = (id: string, message: string) => {
-    if (id === "add" && onQuickAddPerson) {
-      onQuickAddPerson();
-      return;
-    }
-    if (id === "find") {
-      onSend("whom do you want to find?");
-      return;
-    }
-    onSend(message);
-  };
-
   return (
     <aside
       className="relative flex h-full w-full min-w-0 flex-col bg-white/95 backdrop-blur-sm"
@@ -118,7 +104,7 @@ export function TreeAssistant({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-text-primary">
-            MyRoots Assistant
+            Ask MyRoots AI
           </p>
           {treeName ? (
             <p className="mt-0.5 truncate text-xs text-text-secondary">
@@ -159,7 +145,6 @@ export function TreeAssistant({
         onSubmit={handleSubmit}
         onFileChange={handleFileChange}
         onClearAttachment={clearAttachedImage}
-        onQuickAction={handleQuickAction}
       />
     </aside>
   );

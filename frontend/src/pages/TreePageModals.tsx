@@ -7,6 +7,7 @@ import {
 } from "@/components/PersonView/PersonViewPanel";
 import { PersonFormValues } from "@/validations/family-tree.validation";
 import { TreePersonNode, UpdatePersonPayload } from "@/types/api.types";
+import { getSpouseDefaultGender } from "@/utils/person.utils";
 
 export type TreePanelMode =
   | "none"
@@ -32,7 +33,7 @@ interface TreePageModalsProps {
   imageDeleting: boolean;
   onClosePanel: () => void;
   onCloseDelete: () => void;
-  onConfirmDelete: () => void;
+  onConfirmDelete: (mode: "person" | "branch") => void;
   onCreateRoot: (values: PersonFormValues) => void;
   onCreateParent: (values: PersonFormValues) => void;
   onCreateChild: (values: PersonFormValues) => void;
@@ -77,6 +78,10 @@ export function TreePageModals({
   onDeleteImage,
   onRequestDelete,
 }: TreePageModalsProps) {
+  const descendantCount = personPendingDelete
+    ? countDescendants(personPendingDelete)
+    : 0;
+
   return (
     <>
       <Modal
@@ -172,6 +177,12 @@ export function TreePageModals({
 
         {panelMode === "add-spouse" && canEdit && (
           <PersonForm
+            key={activePerson?.id}
+            defaultValues={
+              activePerson
+                ? { gender: getSpouseDefaultGender(activePerson.gender) }
+                : undefined
+            }
             onSubmit={onCreateSpouse}
             loading={addSpouseLoading}
             submitLabel={activePerson
@@ -197,7 +208,7 @@ export function TreePageModals({
         }
         size="sm"
         footer={
-          <div className="flex justify-end gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
             <Button
               variant="secondary"
               onClick={onCloseDelete}
@@ -206,19 +217,49 @@ export function TreePageModals({
               Cancel
             </Button>
             <Button
-              variant="danger"
-              onClick={onConfirmDelete}
+              variant="secondary"
+              onClick={() => onConfirmDelete("person")}
               loading={deleteLoading}
             >
-              Delete
+              Delete only this person
             </Button>
+            {descendantCount > 0 && (
+              <Button
+                variant="danger"
+                onClick={() => onConfirmDelete("branch")}
+                loading={deleteLoading}
+              >
+                Delete with children
+              </Button>
+            )}
           </div>
         }
       >
         <p className="text-sm text-text-secondary">
-          Do you want to continue with deleting this person?
+          Choose how to handle this person's children.
+          {descendantCount > 0
+            ? ` ${descendantCount} child/descendant record${
+                descendantCount === 1 ? "" : "s"
+              } can either be kept in the tree or deleted with this person.`
+            : " This person has no children in the tree."}
         </p>
       </Modal>
     </>
   );
+}
+
+function countDescendants(person: TreePersonNode): number {
+  const visited = new Set<string>();
+
+  const visit = (node: TreePersonNode): number => {
+    let count = 0;
+    for (const child of node.children) {
+      if (visited.has(child.id)) continue;
+      visited.add(child.id);
+      count += 1 + visit(child);
+    }
+    return count;
+  };
+
+  return visit(person);
 }

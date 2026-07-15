@@ -203,7 +203,12 @@ export class PersonService {
     return mapPersonToResponse(saved);
   }
 
-  async delete(treeId: string, personId: string, userId: string): Promise<void> {
+  async delete(
+    treeId: string,
+    personId: string,
+    userId: string,
+    mode: 'person' | 'branch' = 'person',
+  ): Promise<void> {
     await this.assertEditPermission(treeId, userId);
     const person = await this.getAccessiblePerson(treeId, personId, userId);
 
@@ -215,26 +220,141 @@ export class PersonService {
       }
     }
 
-    // Soft-delete any spouse join rows referencing this person.
-    const spouseLinks = await this.spouseRepo.find({
-      where: [
-        { treeId, personId, deletedAt: IsNull() },
-        { treeId, spouseId: personId, deletedAt: IsNull() },
-      ],
-    });
-
-    if (spouseLinks.length > 0) {
+    await this.personRepo.manager.transaction(async (manager) => {
+      const personRepo = manager.getRepository(Person);
+      const spouseRepo = manager.getRepository(PersonSpouse);
       const now = new Date();
-      await this.spouseRepo.save(
-        spouseLinks.map((link) => {
-          link.deletedAt = now;
-          return link;
-        }),
-      );
-    }
+      const personToDelete = await personRepo.findOne({
+        where: { id: personId, treeId, deletedAt: IsNull() },
+      });
 
-    person.deletedAt = new Date();
-    await this.personRepo.save(person);
+      if (!personToDelete) {
+        throw new ApiError(404, 'Person not found');
+      }
+
+      if (mode === 'branch') {
+        const persons = await personRepo.find({
+          where: { treeId, deletedAt: IsNull() },
+        });
+        const idsToDelete = new Set<string>([personId]);
+        let changed = true;
+
+        while (changed) {
+          changed = false;
+          for (const item of persons) {
+            if (
+              item.parentId &&
+              idsToDelete.has(item.parentId) &&
+              !idsToDelete.has(item.id)
+            ) {
+              idsToDelete.add(item.id);
+              changed = true;
+            }
+          }
+        }
+
+        const spouseLinks = await spouseRepo.find({
+          where: { treeId, deletedAt: IsNull() },
+        });
+
+        await spouseRepo.save(
+          spouseLinks
+            .filter(
+              (link) =>
+                idsToDelete.has(link.personId) || idsToDelete.has(link.spouseId),
+            )
+            .map((link) => {
+              link.deletedAt = now;
+              return link;
+            }),
+        );
+
+        await personRepo.save(
+          persons
+            .filter((item) => idsToDelete.has(item.id))
+            .map((item) => {
+              item.deletedAt = now;
+              return item;
+            }),
+        );
+        return;
+      }
+
+      // Soft-delete spouse links, but keep the surviving spouse visible.
+      const spouseLinks = await spouseRepo.find({
+        where: [
+          { treeId, personId, deletedAt: IsNull() },
+          { treeId, spouseId: personId, deletedAt: IsNull() },
+        ],
+      });
+
+      const survivorId = spouseLinks
+        .map((link) => (link.personId === personId ? link.spouseId : link.personId))
+        .find(Boolean);
+      let reparentTargetId = personToDelete.parentId;
+
+      if (survivorId) {
+        const survivor = await personRepo.findOne({
+          where: { id: survivorId, treeId, deletedAt: IsNull() },
+        });
+
+        if (survivor) {
+          if (personToDelete.isRoot) {
+            survivor.isRoot = true;
+            survivor.parentId = null;
+          } else if (!survivor.parentId || survivor.parentId === personId) {
+            survivor.parentId = personToDelete.parentId;
+          }
+
+          await personRepo.save(survivor);
+          reparentTargetId = survivor.id;
+        }
+      }
+
+      const children = await personRepo.find({
+        where: { treeId, parentId: personId, deletedAt: IsNull() },
+        order: { createdAt: 'ASC' },
+      });
+
+      const childrenToMove = children.filter((child) => child.id !== survivorId);
+      if (childrenToMove.length > 0) {
+        if (personToDelete.isRoot && !reparentTargetId) {
+          const [nextRoot, ...remainingChildren] = childrenToMove;
+          nextRoot.parentId = null;
+          nextRoot.isRoot = true;
+          nextRoot.updatedAt = now;
+
+          await personRepo.save([
+            nextRoot,
+            ...remainingChildren.map((child) => {
+              child.parentId = nextRoot.id;
+              child.updatedAt = now;
+              return child;
+            }),
+          ]);
+        } else {
+          await personRepo.save(
+            childrenToMove.map((child) => {
+              child.parentId = reparentTargetId;
+              child.updatedAt = now;
+              return child;
+            }),
+          );
+        }
+      }
+
+      if (spouseLinks.length > 0) {
+        await spouseRepo.save(
+          spouseLinks.map((link) => {
+            link.deletedAt = now;
+            return link;
+          }),
+        );
+      }
+
+      personToDelete.deletedAt = now;
+      await personRepo.save(personToDelete);
+    });
   }
 
   async getTreeView(treeId: string, userId: string): Promise<TreeViewResponse> {

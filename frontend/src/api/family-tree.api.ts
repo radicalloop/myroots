@@ -82,9 +82,14 @@ export const updatePerson = (
     data,
   );
 
-export const deletePerson = (treeId: string, personId: string) =>
+export const deletePerson = (
+  treeId: string,
+  personId: string,
+  mode: 'person' | 'branch' = 'person',
+) =>
   api.delete<ApiSuccessResponse<null>>(
     `/trees/${treeId}/persons/${personId}`,
+    { params: { mode } },
   );
 
 export const fetchPersonImageBlob = (

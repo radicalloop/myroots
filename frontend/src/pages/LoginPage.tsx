@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Trees } from "lucide-react";
 import {
   loginSchema,
@@ -15,6 +15,7 @@ import { ROUTES } from "@/constants/app.constants";
 
 export function LoginPage() {
   const loginMutation = useLogin();
+  const location = useLocation();
   const {
     register,
     handleSubmit,
@@ -103,6 +104,7 @@ export function LoginPage() {
               Don&apos;t have an account?{" "}
               <Link
                 to={ROUTES.SIGNUP}
+                state={location.state}
                 className="font-medium text-brand-600 transition-colors hover:text-brand-700"
               >
                 Create one

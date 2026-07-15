@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Card } from '@/components/ui/Card';
 import { ROUTES } from '@/constants/app.constants';
 import { CheckCircle, XCircle } from 'lucide-react';
+import { getErrorMessage } from '@/lib/axios';
 
 export function AcceptInvitePage() {
   const { token = '' } = useParams<{ token: string }>();
@@ -50,10 +51,10 @@ export function AcceptInvitePage() {
           <div className="space-y-4">
             <XCircle className="mx-auto h-12 w-12 text-red-500" />
             <h2 className="text-lg font-semibold text-text-primary">
-              Invite not found
+              Invite could not be accepted
             </h2>
             <p className="text-sm text-text-secondary">
-              This share link may have expired or already been accepted.
+              {getErrorMessage(acceptShare.error)}
             </p>
             <Link to={ROUTES.DASHBOARD}>
               <Button variant="secondary">Go to dashboard</Button>

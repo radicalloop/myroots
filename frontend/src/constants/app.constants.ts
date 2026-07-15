@@ -3,6 +3,7 @@ export const ROUTES = {
   SIGNUP: '/signup',
   DASHBOARD: '/dashboard',
   TREE: (treeId: string) => `/tree/${treeId}`,
+  PUBLIC_TREE: (treeId: string) => `/public/tree/${treeId}`,
   ACCEPT_SHARE: (token: string) => `/accept-share/${token}`,
 } as const;
 

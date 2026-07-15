@@ -7,6 +7,7 @@ import {
   Pencil,
   Search,
   SendHorizontal,
+  Sparkles,
   UserPlus,
   X,
 } from "lucide-react";
@@ -16,22 +17,41 @@ import { useSpeechToText } from "@/hooks/useSpeechToText";
 
 const QUICK_PROMPTS = [
   {
-    id: "add",
+    label: "Tell me about my family history",
+    message: "Tell me about my family history",
+  },
+  {
+    label: "Who are my oldest known ancestors?",
+    message: "Who are my oldest known ancestors?",
+  },
+  {
+    label: "Help me find missing family details",
+    message: "Help me find missing family details",
+  },
+  {
+    label: "Summarize my family tree",
+    message: "Summarize my family tree",
+  },
+] as const;
+
+const ACTION_TEMPLATES = [
+  {
     label: "Add person",
     icon: UserPlus,
-    message: "Help me add a new person to this tree.",
+    message:
+      "Add a person:\nFirst name: \nLast name: \nGender: \nWhere to add: under [person name] / as root\nRelationship: child / parent / spouse\nBirth date/place (optional): ",
   },
   {
-    id: "edit",
     label: "Edit details",
     icon: Pencil,
-    message: "Help me edit someone's details in this tree.",
+    message:
+      "Edit details:\nPerson to edit: \nWhat detail should change: \nNew value: ",
   },
   {
-    id: "find",
     label: "Find someone",
     icon: Search,
-    message: "Help me find someone in this tree.",
+    message:
+      "Find someone:\nName or clue: \nWhat should I look for: ",
   },
 ] as const;
 
@@ -58,7 +78,6 @@ interface TreeAssistantComposerProps {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearAttachment: () => void;
-  onQuickAction: (id: string, message: string) => void;
 }
 
 export function TreeAssistantComposer({
@@ -69,7 +88,6 @@ export function TreeAssistantComposer({
   onSubmit,
   onFileChange,
   onClearAttachment,
-  onQuickAction,
 }: TreeAssistantComposerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -117,21 +135,53 @@ export function TreeAssistantComposer({
     wasSendingRef.current = isSending;
   }, [isSending]);
 
+  const fillPrompt = (message: string) => {
+    onInputChange(message);
+    requestAnimationFrame(() => {
+      focusChatInput(inputRef);
+      const nextCursor = message.length;
+      inputRef.current?.setSelectionRange(nextCursor, nextCursor);
+    });
+  };
+
   return (
     <div className="min-w-0 space-y-3 border-t border-border-subtle px-4 py-3">
-      <div className="flex flex-wrap gap-2">
-        {QUICK_PROMPTS.map(({ id, label, icon: Icon, message }) => (
-          <button
-            key={id}
-            type="button"
-            disabled={isSending}
-            onClick={() => onQuickAction(id, message)}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border-soft bg-white px-3 py-1.5 text-xs font-bold text-text-primary transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
-          >
-            <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-            {label}
-          </button>
-        ))}
+      <div className="rounded-2xl border border-brand-100 bg-brand-50/70 px-3 py-3">
+        <div className="mb-2 flex items-center gap-2">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-white">
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <p className="text-sm font-semibold text-text-primary">
+            Ask MyRoots AI
+          </p>
+        </div>
+        <div className="mb-2 flex flex-wrap gap-2">
+          {ACTION_TEMPLATES.map(({ label, icon: Icon, message }) => (
+            <button
+              key={label}
+              type="button"
+              disabled={isSending}
+              onClick={() => fillPrompt(message)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border-soft bg-white px-3 py-1.5 text-xs font-bold text-text-primary transition hover:border-brand-300 hover:bg-white disabled:opacity-50"
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_PROMPTS.map(({ label, message }) => (
+            <button
+              key={label}
+              type="button"
+              disabled={isSending}
+              onClick={() => fillPrompt(message)}
+              className="inline-flex items-center rounded-full border border-brand-100 bg-white px-3 py-1.5 text-left text-xs font-semibold text-brand-800 transition hover:border-brand-300 hover:bg-brand-100 disabled:opacity-50"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {attachedImage && (

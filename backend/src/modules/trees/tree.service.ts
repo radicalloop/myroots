@@ -8,6 +8,7 @@ import { ApiError } from '../../utils/ApiError';
 import { CreateTreeDto, UpdateTreeDto } from './dto/tree.dto';
 import { CreateTreeShareDto, UpdateTreeShareDto } from './dto/share-tree.dto';
 import { mapTreeToResponse } from '../persons/helpers/person.mapper';
+import { ShareEmailService } from './share-email.service';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface AccessibleTree {
@@ -24,6 +25,7 @@ export class TreeService {
     private readonly treeShareRepo: Repository<TreeShare>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly shareEmailService: ShareEmailService,
   ) {}
 
   async findAllByUser(userId: string) {
@@ -32,31 +34,9 @@ export class TreeService {
       order: { createdAt: 'DESC' },
     });
 
-    // Auto-accept any pending shares for this user's email
-    const user = await this.userRepo.findOne({
-      where: { id: userId, deletedAt: IsNull() },
-    });
-
-    if (user) {
-      const pendingShares = await this.treeShareRepo.find({
-        where: {
-          sharedWithEmail: user.email,
-          status: TreeShareStatus.PENDING,
-          deletedAt: IsNull(),
-        },
-      });
-
-      if (pendingShares.length > 0) {
-        for (const ps of pendingShares) {
-          ps.status = TreeShareStatus.ACCEPTED;
-          ps.sharedWithUserId = userId;
-        }
-        await this.treeShareRepo.save(pendingShares);
-      }
-    }
-
     const acceptedShares = await this.treeShareRepo.find({
       where: { sharedWithUserId: userId, status: TreeShareStatus.ACCEPTED, deletedAt: IsNull() },
+      relations: ['sharedByUser'],
     });
 
     const sharedTreeIds = acceptedShares.map((s) => s.treeId);
@@ -83,7 +63,7 @@ export class TreeService {
         return {
           ...mapTreeToResponse(tree),
           role: share.permission as 'VIEW' | 'EDIT',
-          sharedByEmail: share.sharedWithEmail,
+          sharedByEmail: share.sharedByUser?.email,
         };
       })
       .filter(Boolean);
@@ -182,30 +162,6 @@ export class TreeService {
       return { tree, permission: share.permission };
     }
 
-    // Auto-accept any pending shares for this user's email
-    // (handles shares created before auto-approve code was deployed)
-    const user = await this.userRepo.findOne({
-      where: { id: userId, deletedAt: IsNull() },
-    });
-
-    if (user) {
-      const pendingShare = await this.treeShareRepo.findOne({
-        where: {
-          treeId,
-          sharedWithEmail: user.email,
-          status: TreeShareStatus.PENDING,
-          deletedAt: IsNull(),
-        },
-      });
-
-      if (pendingShare) {
-        pendingShare.status = TreeShareStatus.ACCEPTED;
-        pendingShare.sharedWithUserId = userId;
-        await this.treeShareRepo.save(pendingShare);
-        return { tree, permission: pendingShare.permission };
-      }
-    }
-
     throw new ApiError(404, 'Tree not found');
   }
 
@@ -217,6 +173,7 @@ export class TreeService {
     dto: CreateTreeShareDto,
   ) {
     const tree = await this.getOwnedTree(treeId, userId);
+    const sharedWithEmail = dto.sharedWithEmail.trim().toLowerCase();
 
     const currentUser = await this.userRepo.findOne({
       where: { id: userId, deletedAt: IsNull() },
@@ -224,7 +181,7 @@ export class TreeService {
 
     if (
       currentUser &&
-      currentUser.email.toLowerCase() === dto.sharedWithEmail.toLowerCase()
+      currentUser.email.toLowerCase() === sharedWithEmail
     ) {
       throw new ApiError(400, 'You cannot share a tree with yourself');
     }
@@ -232,7 +189,7 @@ export class TreeService {
     const existing = await this.treeShareRepo.findOne({
       where: {
         treeId,
-        sharedWithEmail: dto.sharedWithEmail,
+        sharedWithEmail,
         status: In([TreeShareStatus.PENDING, TreeShareStatus.ACCEPTED]),
         deletedAt: IsNull(),
       },
@@ -242,22 +199,34 @@ export class TreeService {
       throw new ApiError(409, 'A share invite already exists for this email');
     }
 
-    // Check if recipient is an existing user — auto-accept if so
-    const recipientUser = await this.userRepo.findOne({
-      where: { email: dto.sharedWithEmail, deletedAt: IsNull() },
-    });
-
     const share = this.treeShareRepo.create({
       treeId: tree.id,
       sharedByUserId: userId,
-      sharedWithEmail: dto.sharedWithEmail,
+      sharedWithEmail,
       permission: dto.permission,
-      status: recipientUser ? TreeShareStatus.ACCEPTED : TreeShareStatus.PENDING,
-      sharedWithUserId: recipientUser?.id ?? null,
+      status: TreeShareStatus.PENDING,
+      sharedWithUserId: null,
       token: uuidv4(),
     });
 
     const saved = await this.treeShareRepo.save(share);
+    const emailSent = await this.shareEmailService.sendTreeShareInvite({
+      to: saved.sharedWithEmail,
+      treeName: tree.name,
+      sharedByEmail: currentUser?.email ?? 'A MyRoots user',
+      permission: saved.permission,
+      acceptUrl: this.shareEmailService.getAcceptShareUrl(saved.token),
+    });
+
+    if (!emailSent) {
+      saved.deletedAt = new Date();
+      await this.treeShareRepo.save(saved);
+      throw new ApiError(
+        502,
+        'Share invite email could not be sent. Please check Resend settings.',
+      );
+    }
+
     return this.mapShareToResponse(saved);
   }
 
@@ -316,6 +285,13 @@ export class TreeService {
 
     if (!share) {
       throw new ApiError(404, 'Share invite not found or already accepted');
+    }
+
+    if (share.sharedWithEmail.toLowerCase() !== userEmail.toLowerCase()) {
+      throw new ApiError(
+        403,
+        `This invite was sent to ${share.sharedWithEmail}. Please sign in with that email to accept it.`,
+      );
     }
 
     share.status = TreeShareStatus.ACCEPTED;

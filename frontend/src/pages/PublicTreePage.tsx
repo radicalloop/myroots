@@ -1,5 +1,6 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { usePublicTreeView } from '@/hooks/api/useFamilyTree';
 import {
   FamilyTreeView,
@@ -8,6 +9,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { ROUTES } from '@/constants/app.constants';
+import { TreePersonNode } from '@/types/api.types';
 import { TreePageToolbar } from './TreePageToolbar';
 import { TreePublicProvider } from '@/contexts/TreePublicContext';
 
@@ -15,6 +17,26 @@ export function PublicTreePage() {
   const { treeId = '' } = useParams();
   const { data: treeView, isLoading, isError } = usePublicTreeView(treeId);
   const treeViewRef = useRef<FamilyTreeViewHandle>(null);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  const handleSearchSelect = (person: TreePersonNode) => {
+    treeViewRef.current?.focusPerson(person.id);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!treeView) return;
+
+    try {
+      setIsDownloadingPdf(true);
+      await treeViewRef.current?.downloadPdf(treeView.tree.name);
+      toast.success('PDF downloaded successfully');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`Failed to download PDF: ${message}`);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -46,13 +68,13 @@ export function PublicTreePage() {
           <TreePageToolbar
             treeName={treeView.tree.name}
             root={treeView.root}
-            isDownloadingPdf={false}
+            isDownloadingPdf={isDownloadingPdf}
             canEdit={false}
             isSavingTreeName={false}
             onSaveTreeName={() => {}}
-            onDownloadPdf={() => {}}
+            onDownloadPdf={handleDownloadPdf}
             onAddRoot={() => {}}
-            onSearchSelect={() => {}}
+            onSearchSelect={handleSearchSelect}
             publicMode
           />
           <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
@@ -61,6 +83,7 @@ export function PublicTreePage() {
               root={treeView.root}
               onNodeClick={() => {}}
               immersive
+              centerOnInitialLoad
             />
           </div>
         </section>

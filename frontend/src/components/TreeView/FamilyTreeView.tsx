@@ -21,6 +21,7 @@ import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
 import { TreePersonNode } from "@/types/api.types";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
+import { useTreePublicContext } from "@/contexts/TreePublicContext";
 import { treeToFlowElements, PersonNodeData } from "./layoutTree";
 import { PersonFlowNode } from "./PersonFlowNode";
 import { FamilyUnitNode } from "./FamilyUnitNode";
@@ -41,6 +42,7 @@ const nodeTypes = {
   coupleHeart: CoupleHeartNode,
 };
 const edgeTypes = { pedigree: PedigreeEdge, spouseConnector: SpouseConnector };
+const CENTER_INITIAL_ZOOM = 0.72;
 
 export interface FamilyTreeViewHandle {
   downloadPdf: (treeName: string) => Promise<void>;
@@ -51,6 +53,7 @@ interface FamilyTreeViewProps {
   root: TreePersonNode | null;
   onNodeClick: (person: TreePersonNode) => void;
   immersive?: boolean;
+  centerOnInitialLoad?: boolean;
 }
 
 interface TreeFlowProps {
@@ -58,19 +61,27 @@ interface TreeFlowProps {
   onNodeClick: (person: TreePersonNode) => void;
   exportRef: React.Ref<FamilyTreeViewHandle>;
   immersive?: boolean;
+  centerOnInitialLoad?: boolean;
 }
 
-function TreeFlow({ root, onNodeClick, exportRef, immersive }: TreeFlowProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+function TreeFlow({
+  root,
+  onNodeClick,
+  exportRef,
+  immersive,
+  centerOnInitialLoad = false,
+}: TreeFlowProps) {
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const publicInitialViewAppliedRef = useRef(false);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(
     null,
   );
   const [pendingFocusSource, setPendingFocusSource] =
     useState<ChatFocusNodeEventDetail["source"]>(undefined);
   const { getNodes, getNode, setCenter } = useReactFlow();
+  const { isPublic } = useTreePublicContext();
   const { nodes: layoutNodes, edges: layoutEdges } = useMemo(
     () => treeToFlowElements(root),
     [root],
@@ -82,7 +93,39 @@ function TreeFlow({ root, onNodeClick, exportRef, immersive }: TreeFlowProps) {
   useEffect(() => {
     setNodes(layoutNodes);
     setEdges(layoutEdges);
+    publicInitialViewAppliedRef.current = false;
   }, [layoutNodes, layoutEdges, setNodes, setEdges]);
+
+  useEffect(() => {
+    if (
+      (!isPublic && !centerOnInitialLoad) ||
+      publicInitialViewAppliedRef.current
+    ) {
+      return;
+    }
+
+    const personNodes = nodes.filter((node) => node.type === "personNode");
+    if (personNodes.length === 0) return;
+
+    const minX = Math.min(...personNodes.map((node) => node.position.x));
+    const maxX = Math.max(
+      ...personNodes.map((node) => node.position.x + PEDIGREE_NODE_WIDTH),
+    );
+    const minY = Math.min(...personNodes.map((node) => node.position.y));
+    const maxY = Math.max(
+      ...personNodes.map((node) => node.position.y + PEDIGREE_NODE_HEIGHT),
+    );
+
+    publicInitialViewAppliedRef.current = true;
+    const frameId = requestAnimationFrame(() => {
+      setCenter((minX + maxX) / 2, (minY + maxY) / 2, {
+        duration: 0,
+        zoom: CENTER_INITIAL_ZOOM,
+      });
+    });
+
+    return () => cancelAnimationFrame(frameId);
+  }, [centerOnInitialLoad, isPublic, nodes, setCenter]);
 
   const clearHighlight = useCallback(() => {
     setNodes((currentNodes) =>
@@ -165,11 +208,7 @@ function TreeFlow({ root, onNodeClick, exportRef, immersive }: TreeFlowProps) {
 
   useImperativeHandle(exportRef, () => ({
     downloadPdf: async (name: string) => {
-      const flowElement = containerRef.current;
-      if (!(flowElement instanceof HTMLElement)) {
-        throw new Error("Tree view not found");
-      }
-      await downloadTreeAsPdf(flowElement, getNodes(), name);
+      await downloadTreeAsPdf(getNodes(), name, { isPublic });
     },
     focusPerson,
   }));
@@ -186,7 +225,6 @@ function TreeFlow({ root, onNodeClick, exportRef, immersive }: TreeFlowProps) {
 
   return (
     <div
-      ref={containerRef}
       className={
         immersive
           ? "h-full w-full overflow-hidden rounded-[22px] border border-border-soft bg-white shadow-[0_1px_2px_rgba(31,41,35,0.04)]"
@@ -232,7 +270,12 @@ function TreeFlow({ root, onNodeClick, exportRef, immersive }: TreeFlowProps) {
 export const FamilyTreeView = forwardRef<
   FamilyTreeViewHandle,
   FamilyTreeViewProps
->(function FamilyTreeView({ root, onNodeClick, immersive = false }, ref) {
+>(function FamilyTreeView({
+  root,
+  onNodeClick,
+  immersive = false,
+  centerOnInitialLoad = false,
+}, ref) {
   if (!root) {
     return (
       <div
@@ -258,6 +301,7 @@ export const FamilyTreeView = forwardRef<
         onNodeClick={onNodeClick}
         exportRef={ref}
         immersive={immersive}
+        centerOnInitialLoad={centerOnInitialLoad}
       />
     </ReactFlowProvider>
   );

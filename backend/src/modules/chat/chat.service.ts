@@ -9,7 +9,12 @@ import { PersonService } from "../persons/person.service";
 import { AiService } from "./ai.service";
 import { S3Service } from "../storage/s3.service";
 import { ChatMessageDto } from "./dto/chat.dto";
-import { resolvePersonByName, toPersonSummaries, isDestructiveCommand } from "./helpers/chat.helper";
+import {
+  formatPersonName,
+  resolvePersonByName,
+  toPersonSummaries,
+  isDestructiveCommand,
+} from "./helpers/chat.helper";
 import { parseAiDecision } from "./helpers/chat-decision.helper";
 import {
   buildResultReply,
@@ -126,6 +131,11 @@ export class ChatService {
         focus_person: null,
         results: [],
       };
+    }
+
+    const directLookup = this.handleDirectPersonLookup(persons, dto.message);
+    if (directLookup) {
+      return directLookup;
     }
 
     const cacheKey = this.pendingKey(treeId, userId);
@@ -390,6 +400,119 @@ export class ChatService {
     return mapPersonToResponse(resolved.person);
   }
 
+  private handleDirectPersonLookup(
+    persons: Person[],
+    message: string,
+  ): ChatResult | null {
+    const lookupName = this.extractDirectPersonLookupName(message);
+    if (!lookupName) return null;
+
+    const resolved = resolvePersonByName(persons, lookupName);
+
+    if (resolved.kind === "found") {
+      const person = mapPersonToResponse(resolved.person);
+      return {
+        reply: this.buildPersonLookupReply(resolved.person, persons),
+        action: "NONE",
+        person: null,
+        focus_person: person,
+        results: [],
+      };
+    }
+
+    if (resolved.kind === "ambiguous") {
+      const options = resolved.matches.map((person) => {
+        const gender = person.gender
+          ? ` (${person.gender.toLowerCase()})`
+          : "";
+        return `${formatPersonName(person)}${gender}`;
+      });
+
+      return {
+        reply: `I found multiple people matching "${lookupName}" in this tree. Please be more specific: ${options.join(", ")}.`,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    return {
+      reply: `I couldn't find anyone named "${lookupName}" in this tree.`,
+      action: "NONE",
+      person: null,
+      focus_person: null,
+      results: [],
+    };
+  }
+
+  private extractDirectPersonLookupName(message: string): string | null {
+    const trimmed = message.trim().replace(/[?.!]+$/g, "").trim();
+    const match = trimmed.match(
+      /^(?:who\s+is|tell\s+me\s+about|describe|find|show\s+me)\s+(.+)$/i,
+    );
+    if (!match) return null;
+
+    const name = match[1].trim().replace(/^person\s+/i, "").trim();
+    if (!name || name.length > 80) return null;
+
+    const nonPersonQueries = [
+      "someone",
+      "my family history",
+      "family history",
+      "my family tree",
+      "family tree",
+      "missing family details",
+      "missing details",
+    ];
+
+    if (nonPersonQueries.includes(name.toLowerCase())) {
+      return null;
+    }
+
+    return name;
+  }
+
+  private buildPersonLookupReply(person: Person, persons: Person[]): string {
+    const fullName = formatPersonName(person);
+    const gender = person.gender?.toLowerCase();
+    const details: string[] = [];
+    const parent = person.parentId
+      ? persons.find((candidate) => candidate.id === person.parentId)
+      : null;
+
+    if (gender) {
+      const article = /^[aeiou]/i.test(gender) ? "an" : "a";
+      details.push(`${fullName} is ${article} ${gender} in this tree.`);
+    } else {
+      details.push(`${fullName} is in this tree.`);
+    }
+
+    if (parent) {
+      details.push(`They are a child of ${formatPersonName(parent)}.`);
+    } else if (person.isRoot) {
+      details.push("They are the root person in this tree.");
+    }
+
+    if (person.birthDate) {
+      details.push(`Birth date: ${person.birthDate}.`);
+    }
+
+    if (person.birthPlace) {
+      details.push(`Birth place: ${person.birthPlace}.`);
+    }
+
+    if (person.currentPlace) {
+      details.push(`Current place: ${person.currentPlace}.`);
+    }
+
+    if (person.healthNote) {
+      details.push(`Health note: ${person.healthNote}.`);
+    }
+
+    return details.join(" ");
+  }
+
   private pendingKey(treeId: string, userId: string): string {
     return `${treeId}:${userId}`;
   }
@@ -551,6 +674,11 @@ export class ChatService {
       where: { treeId, deletedAt: IsNull() },
       order: { createdAt: "ASC" },
     });
+
+    const directLookup = this.handleDirectPersonLookup(persons, dto.message);
+    if (directLookup) {
+      return { reply: directLookup.reply };
+    }
 
     const aiProvider = parseAiModalProvider(
       this.configService.get<string>("AI_MODAL") ?? "",

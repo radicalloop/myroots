@@ -1,17 +1,19 @@
-import clsx from 'clsx';
-import { ChatMessage } from '@/types/chat.types';
-import { sanitizeAssistantMessage } from '@/utils/chat.utils';
-import { Sparkles } from 'lucide-react';
+import clsx from "clsx";
+import { ChatMessage } from "@/types/chat.types";
+import { sanitizeAssistantMessage } from "@/utils/chat.utils";
+import { Sparkles } from "lucide-react";
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
 }
 
 export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
-  const isUser = message.role === 'user';
+  const isUser = message.role === "user";
 
   return (
-    <div className={clsx('flex gap-2', isUser ? 'justify-end' : 'justify-start')}>
+    <div
+      className={clsx("flex gap-2", isUser ? "justify-end" : "justify-start")}
+    >
       {!isUser && (
         <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-600">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -19,10 +21,10 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
       )}
       <div
         className={clsx(
-          'max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
+          "max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ",
           isUser
-            ? 'rounded-br-md bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm'
-            : 'rounded-bl-md border border-border-subtle bg-white text-text-primary shadow-sm',
+            ? "rounded-br-md bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm"
+            : "rounded-bl-md border border-border-subtle bg-white text-text-primary shadow-sm",
         )}
       >
         {message.imageUrl && (
@@ -33,7 +35,11 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           />
         )}
         {message.content && (
-          <p>{isUser ? message.content : sanitizeAssistantMessage(message.content)}</p>
+          <p className="break-words">
+            {isUser
+              ? message.content
+              : sanitizeAssistantMessage(message.content)}
+          </p>
         )}
       </div>
     </div>

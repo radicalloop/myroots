@@ -113,7 +113,7 @@ export function TreePageToolbar({
                   variant="secondary"
                   onClick={onDownloadPdf}
                   loading={isDownloadingPdf}
-                  className={`${mobileActionBtnClass} sm:hidde !size-9`}
+                  className={`${mobileActionBtnClass} md:!hidden !size-9`}
                   aria-label="Download PDF"
                 >
                   <Download className={actionIconClass} aria-hidden="true" />
@@ -141,7 +141,8 @@ export function TreePageToolbar({
         <div
           className={cn(
             "pointer-events-auto flex w-full flex-col gap-2 rounded-2xl border border-white/70 bg-white/90 p-1.5 shadow-[0_8px_30px_rgba(31,41,35,0.08)] backdrop-blur-xl sm:w-auto sm:shrink-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-0",
-            showSearch && "max-sm:mt-3.5 max-sm:w-[calc(100%-24px)] max-sm:mx-auto",
+            showSearch &&
+              "max-sm:mt-3.5 max-sm:w-[calc(100%-24px)] max-sm:mx-auto",
             showAddRoot && !showSearch && "max-sm:hidden",
           )}
         >

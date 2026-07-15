@@ -94,6 +94,8 @@ export function TreeAssistant({
 
   const sendPrompt = (message: string) => {
     onSend(message);
+    setInput("");
+    clearAttachedImage();
   };
 
   return (

@@ -10,6 +10,7 @@ type DeleteMode = "person" | "branch";
 
 interface DeletePersonModalProps {
   person: TreePersonNode | null;
+  descendantCount?: number;
   loading: boolean;
   onClose: () => void;
   onConfirm: (mode: DeleteMode) => void;
@@ -68,12 +69,14 @@ function DeleteOption({
 
 export function DeletePersonModal({
   person,
+  descendantCount: descendantCountOverride,
   loading,
   onClose,
   onConfirm,
 }: DeletePersonModalProps) {
   const [mode, setMode] = useState<DeleteMode>("person");
-  const descendantCount = person ? countDescendants(person) : 0;
+  const descendantCount =
+    descendantCountOverride ?? (person ? countDescendants(person) : 0);
   const personName = person ? getPersonLabel(person) : "";
   const descendantLabel =
     descendantCount === 1 ? "1 descendant" : `${descendantCount} descendants`;

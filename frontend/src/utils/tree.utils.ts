@@ -77,6 +77,25 @@ export function getFamilyChildrenForPerson(
   });
 }
 
+export function countFamilyDescendantsForPerson(
+  root: TreePersonNode,
+  person: TreePersonNode,
+): number {
+  const visited = new Set<string>();
+
+  const visit = (node: TreePersonNode): number => {
+    let count = 0;
+    for (const child of getFamilyChildrenForPerson(root, node)) {
+      if (visited.has(child.id)) continue;
+      visited.add(child.id);
+      count += 1 + visit(child);
+    }
+    return count;
+  };
+
+  return visit(person);
+}
+
 export function updatePersonInTree(
   root: TreePersonNode,
   personId: string,

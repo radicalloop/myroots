@@ -236,15 +236,34 @@ export class PersonService {
         const persons = await personRepo.find({
           where: { treeId, deletedAt: IsNull() },
         });
+        const spouseLinks = await spouseRepo.find({
+          where: { treeId, deletedAt: IsNull() },
+        });
+        const spouseByPersonId = new Map<string, string>();
+
+        for (const link of spouseLinks) {
+          spouseByPersonId.set(link.personId, link.spouseId);
+          spouseByPersonId.set(link.spouseId, link.personId);
+        }
+
         const idsToDelete = new Set<string>([personId]);
         let changed = true;
 
         while (changed) {
           changed = false;
+          const parentIds = new Set(idsToDelete);
+
+          for (const id of idsToDelete) {
+            const spouseId = spouseByPersonId.get(id);
+            if (spouseId) {
+              parentIds.add(spouseId);
+            }
+          }
+
           for (const item of persons) {
             if (
               item.parentId &&
-              idsToDelete.has(item.parentId) &&
+              parentIds.has(item.parentId) &&
               !idsToDelete.has(item.id)
             ) {
               idsToDelete.add(item.id);
@@ -252,10 +271,6 @@ export class PersonService {
             }
           }
         }
-
-        const spouseLinks = await spouseRepo.find({
-          where: { treeId, deletedAt: IsNull() },
-        });
 
         await spouseRepo.save(
           spouseLinks

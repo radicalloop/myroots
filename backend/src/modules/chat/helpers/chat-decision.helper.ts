@@ -49,6 +49,8 @@ function normalizeActionItem(value: unknown): AiActionItem {
     action,
     target_name:
       typeof obj.target_name === 'string' ? obj.target_name : null,
+    target_id:
+      typeof obj.target_id === 'string' ? obj.target_id : undefined,
     person:
       obj.person && typeof obj.person === 'object'
         ? (obj.person as AiActionItem['person'])
@@ -79,6 +81,12 @@ function unwrapDecisionObject(
   parsed: unknown,
 ): Record<string, unknown> | string | null {
   if (typeof parsed === 'string') {
+    const nested = extractJsonFromAiResponse(parsed);
+    if (nested && nested !== parsed) {
+      const unwrapped = unwrapDecisionObject(nested);
+      if (unwrapped) return unwrapped;
+    }
+
     return parsed;
   }
 
@@ -111,6 +119,19 @@ function buildPlainReplyDecision(raw: string): AiDecisionBatch {
   };
 }
 
+function looksLikeActionJson(raw: string): boolean {
+  return /["']actions["']\s*:|["']action["']\s*:\s*["'](?:ADD_PERSON|UPDATE_PERSON|ADD_SPOUSE|ADD_PARENT|BULK_UPDATE_PERSONS)/i.test(raw);
+}
+
+function buildUnreadableActionDecision(): AiDecisionBatch {
+  return {
+    actions: [],
+    reply:
+      "Sorry, I couldn't read the assistant's action response. Please try that request again.",
+    focus_person_name: null,
+  };
+}
+
 export function parseAiDecision(raw: string): AiDecisionBatch {
   const parsed = extractJsonFromAiResponse(raw);
   const decisionInput = unwrapDecisionObject(parsed);
@@ -124,6 +145,10 @@ export function parseAiDecision(raw: string): AiDecisionBatch {
         reply: DELETE_REFUSAL_REPLY,
         focus_person_name: null,
       };
+    }
+
+    if (looksLikeActionJson(raw)) {
+      return buildUnreadableActionDecision();
     }
 
     if (raw.trim()) {
@@ -141,6 +166,10 @@ export function parseAiDecision(raw: string): AiDecisionBatch {
   if (typeof decisionInput === 'string') {
     if (detectDestructiveInRaw(decisionInput)) {
       return { actions: [], reply: DELETE_REFUSAL_REPLY, focus_person_name: null };
+    }
+
+    if (looksLikeActionJson(decisionInput)) {
+      return buildUnreadableActionDecision();
     }
 
     return buildPlainReplyDecision(decisionInput);

@@ -89,11 +89,17 @@ export async function addSpouseForPerson(
 
   if (input.dto.existing_person_id) {
     // Link an existing person as spouse
-    await validateSpouseRules({
-      manager,
-      treeId: input.treeId,
-      personId: input.personId,
-      spouseId: input.dto.existing_person_id,
+    const [canonicalIdA, canonicalIdB] =
+      input.personId < input.dto.existing_person_id
+        ? [input.personId, input.dto.existing_person_id]
+        : [input.dto.existing_person_id, input.personId];
+    const existingLink = await spouseRepo.findOne({
+      where: {
+        treeId: input.treeId,
+        personId: canonicalIdA,
+        spouseId: canonicalIdB,
+        deletedAt: IsNull(),
+      },
     });
 
     spousePerson = (await personRepo.findOne({
@@ -103,6 +109,24 @@ export async function addSpouseForPerson(
         deletedAt: IsNull(),
       },
     }))!;
+
+    if (existingLink && spousePerson) {
+      return spousePerson;
+    }
+
+    await validateSpouseRules({
+      manager,
+      treeId: input.treeId,
+      personId: input.personId,
+      spouseId: input.dto.existing_person_id,
+    });
+
+    if (!spousePerson) {
+      throw new ApiError(
+        400,
+        'Spouse person not found or does not belong to this tree',
+      );
+    }
   } else {
     // Create a new person as the spouse
     spousePerson = personRepo.create({

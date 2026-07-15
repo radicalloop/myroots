@@ -23,6 +23,7 @@ interface TreePageModalsProps {
   activePerson: TreePersonNode | null;
   activeFamilyChildren: TreePersonNode[];
   personPendingDelete: TreePersonNode | null;
+  pendingDeleteDescendantCount: number;
   canEdit: boolean;
   createLoading: boolean;
   addParentLoading: boolean;
@@ -55,6 +56,7 @@ export function TreePageModals({
   activePerson,
   activeFamilyChildren,
   personPendingDelete,
+  pendingDeleteDescendantCount,
   canEdit,
   createLoading,
   addParentLoading,
@@ -198,6 +200,7 @@ export function TreePageModals({
 
       <DeletePersonModal
         person={personPendingDelete}
+        descendantCount={pendingDeleteDescendantCount}
         loading={deleteLoading}
         onClose={onCloseDelete}
         onConfirm={onConfirmDelete}

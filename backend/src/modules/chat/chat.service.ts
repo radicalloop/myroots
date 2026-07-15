@@ -133,6 +133,31 @@ export class ChatService {
       };
     }
 
+    const structuredPersonAction = this.buildStructuredPersonAction(dto.message);
+    if (structuredPersonAction) {
+      const outcome = await executeChatActions(
+        this.personRepo,
+        this.personService,
+        treeId,
+        userId,
+        persons,
+        [structuredPersonAction],
+      );
+      const reply = buildResultReply(
+        this.buildStructuredPersonReply(structuredPersonAction),
+        outcome.results,
+      );
+      const action = summarizeChatAction(outcome.results);
+
+      return {
+        reply,
+        action: action === "NONE" ? "NONE" : action,
+        person: getLastAffectedPerson(outcome.results),
+        focus_person: getLastAffectedPerson(outcome.results),
+        results: outcome.results,
+      };
+    }
+
     const spouseRelationshipActions = this.buildSpouseRelationshipActions(
       dto.message,
       persons,
@@ -426,6 +451,130 @@ export class ChatService {
     if (resolved.kind !== "found") return null;
 
     return mapPersonToResponse(resolved.person);
+  }
+
+  private buildStructuredPersonAction(message: string): AiActionItem | null {
+    if (!/\badd\s+a\s+person\b/i.test(message)) return null;
+
+    const firstName = this.extractStructuredField(message, "first name");
+    const lastName = this.extractStructuredField(message, "last name");
+    const gender = this.extractStructuredField(message, "gender");
+    const targetName = this.extractStructuredField(message, "where to add");
+    const relationship = this.extractStructuredField(message, "relationship");
+
+    if (!firstName || !lastName || !relationship) return null;
+
+    const normalizedRelationship = relationship.toLowerCase();
+    const person = {
+      first_name: firstName,
+      last_name: lastName,
+      gender: this.normalizeGender(gender),
+    };
+
+    if (
+      normalizedRelationship === "child" ||
+      normalizedRelationship === "children"
+    ) {
+      if (!targetName) return null;
+
+      return {
+        action: "ADD_PERSON",
+        target_name: null,
+        person: {
+          ...person,
+          parent_name: targetName,
+        },
+      };
+    }
+
+    if (
+      normalizedRelationship === "spouse" ||
+      normalizedRelationship === "wife" ||
+      normalizedRelationship === "husband"
+    ) {
+      if (!targetName) return null;
+
+      return {
+        action: "ADD_SPOUSE",
+        target_name: targetName,
+        person: {
+          ...person,
+          gender:
+            normalizedRelationship === "wife"
+              ? "FEMALE"
+              : normalizedRelationship === "husband"
+                ? "MALE"
+                : person.gender,
+        },
+      };
+    }
+
+    if (normalizedRelationship === "parent") {
+      if (!targetName) return null;
+
+      return {
+        action: "ADD_PARENT",
+        target_name: targetName,
+        person,
+      };
+    }
+
+    return null;
+  }
+
+  private extractStructuredField(
+    message: string,
+    label: string,
+  ): string | null {
+    const labels = [
+      "first name",
+      "last name",
+      "gender",
+      "where to add",
+      "relationship",
+    ];
+    const otherLabels = labels
+      .filter((candidate) => candidate !== label)
+      .map((candidate) => candidate.replace(/\s+/g, "\\s+"))
+      .join("|");
+    const escapedLabel = label.replace(/\s+/g, "\\s+");
+    const pattern = new RegExp(
+      `${escapedLabel}\\s*:\\s*(.*?)(?=\\s+(?:${otherLabels})\\s*:|$)`,
+      "i",
+    );
+    const match = message.match(pattern);
+    const value = match?.[1]?.trim().replace(/[.。]+$/g, "").trim();
+
+    return value || null;
+  }
+
+  private normalizeGender(gender: string | null): string {
+    const normalized = gender?.trim().toUpperCase();
+
+    if (normalized === "F" || normalized === "FEMALE") return "FEMALE";
+    if (normalized === "M" || normalized === "MALE") return "MALE";
+
+    return "OTHER";
+  }
+
+  private buildStructuredPersonReply(action: AiActionItem): string {
+    const name = [action.person?.first_name, action.person?.last_name]
+      .filter(Boolean)
+      .join(" ");
+
+    if (action.action === "ADD_PERSON") {
+      return `Added ${name} as a child of ${action.person?.parent_name}.`;
+    }
+
+    if (action.action === "ADD_SPOUSE") {
+      return `Added ${name} as spouse of ${action.target_name}.`;
+    }
+
+    if (action.action === "ADD_PARENT") {
+      return `Added ${name} as parent of ${action.target_name}.`;
+    }
+
+    return `Added ${name}.`;
   }
 
   private buildSpouseRelationshipActions(

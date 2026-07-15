@@ -438,29 +438,40 @@ export class ChatService {
       .trim();
     const actions: AiActionItem[] = [];
     const pattern =
-      /\badd\s+([A-Za-z][A-Za-z\s.'-]*?)\s+as\s+(?:the\s+)?(wife|husband|spouse)\s+of\s+([A-Za-z][A-Za-z\s.'-]*?)(?=\.|\n|$)/gi;
+      /\badd\s+([A-Za-z][A-Za-z\s.'-]*?)\s+as\s+(?:the\s+)?(wife|husband|spouse)\s+of\s+([A-Za-z][A-Za-z\s.'-]*?)(?:,\s*([^.\n]*))?(?=\.|\n|$)/gi;
 
     for (const match of normalizedMessage.matchAll(pattern)) {
       const spouseName = match[1].trim();
       const relationship = match[2].toLowerCase();
       const targetName = match[3].trim();
+      const targetContext = match[4]?.trim() ?? "";
       if (!spouseName || !targetName) continue;
 
-      const target = resolvePersonByName(persons, targetName);
-      const resolvedTargetName =
-        target.kind === "found" ? formatPersonName(target.person) : targetName;
+      const resolvedTarget = this.resolveSpouseTargetFromContext(
+        persons,
+        targetName,
+        relationship,
+        targetContext,
+      );
+      const resolvedTargetName = resolvedTarget
+        ? formatPersonName(resolvedTarget)
+        : targetName;
       const spouse = resolvePersonByName(persons, spouseName);
 
       actions.push({
         action: "ADD_SPOUSE",
         target_name: resolvedTargetName,
+        target_id: resolvedTarget?.id,
         person:
           spouse.kind === "found"
             ? { spouse_name: formatPersonName(spouse.person) }
             : spouse.kind === "ambiguous"
               ? { spouse_name: spouseName }
             : {
-                ...this.nameToPersonFields(spouseName),
+                ...this.nameToPersonFields(
+                  spouseName,
+                  resolvedTarget?.lastName,
+                ),
                 gender: relationship === "husband" ? "MALE" : "FEMALE",
               },
       });
@@ -469,13 +480,133 @@ export class ChatService {
     return actions;
   }
 
+  private resolveSpouseTargetFromContext(
+    persons: Person[],
+    targetName: string,
+    relationship: string,
+    context: string,
+  ): Person | null {
+    const resolved = resolvePersonByName(persons, targetName);
+    if (resolved.kind === "found") {
+      return resolved.person;
+    }
+
+    if (resolved.kind !== "ambiguous") {
+      return null;
+    }
+
+    const parentNames = this.extractRelationshipNames(
+      context,
+      /(?:son|daughter|child)\s+of\s+(.+?)(?=\s+and\s+(?:the\s+)?(?:father|mother|parent)\s+of|$)/i,
+    );
+    const childNames = this.extractRelationshipNames(
+      context,
+      /(?:father|mother|parent)\s+of\s+(.+)$/i,
+    );
+    const siblingNames = this.extractRelationshipNames(
+      context,
+      /(?:brother|sister|sibling)\s+of\s+(.+)$/i,
+    );
+    const rootHint = /\broot\s+person\b/i.test(context);
+
+    let best: { person: Person; score: number } | null = null;
+    let tied = false;
+
+    for (const candidate of resolved.matches) {
+      let score = 0;
+
+      if (relationship === "wife" && candidate.gender === "MALE") score += 1;
+      if (relationship === "husband" && candidate.gender === "FEMALE") score += 1;
+      if (rootHint && candidate.isRoot) score += 5;
+
+      const parent = candidate.parentId
+        ? persons.find((person) => person.id === candidate.parentId)
+        : null;
+      if (parent) {
+        score += parentNames.filter((name) =>
+          this.personMatchesRelationshipName(parent, name),
+        ).length * 3;
+      }
+
+      const children = persons.filter(
+        (person) => person.parentId === candidate.id,
+      );
+      for (const childName of childNames) {
+        if (
+          children.some((child) =>
+            this.personMatchesRelationshipName(child, childName),
+          )
+        ) {
+          score += 3;
+        }
+      }
+
+      if (candidate.parentId) {
+        const siblings = persons.filter(
+          (person) =>
+            person.parentId === candidate.parentId &&
+            person.id !== candidate.id,
+        );
+        for (const siblingName of siblingNames) {
+          if (
+            siblings.some((sibling) =>
+              this.personMatchesRelationshipName(sibling, siblingName),
+            )
+          ) {
+            score += 3;
+          }
+        }
+      }
+
+      if (!best || score > best.score) {
+        best = { person: candidate, score };
+        tied = false;
+      } else if (score === best.score) {
+        tied = true;
+      }
+    }
+
+    return best && best.score > 0 && !tied ? best.person : null;
+  }
+
+  private extractRelationshipNames(
+    context: string,
+    pattern: RegExp,
+  ): string[] {
+    const match = context.match(pattern);
+    if (!match) return [];
+
+    return match[1]
+      .replace(/\b(the|a|an)\b/gi, " ")
+      .split(/\s*(?:,|&|\band\b)\s*/i)
+      .map((name) => name.trim())
+      .filter(Boolean);
+  }
+
+  private personMatchesRelationshipName(person: Person, name: string): boolean {
+    const normalized = this.normalizeRelationshipName(name);
+    const fullName = this.normalizeRelationshipName(formatPersonName(person));
+    const firstName = this.normalizeRelationshipName(person.firstName);
+
+    return (
+      normalized === fullName ||
+      normalized === firstName ||
+      fullName.startsWith(`${normalized} `)
+    );
+  }
+
+  private normalizeRelationshipName(name: string): string {
+    return name.trim().toLowerCase().replace(/\s+/g, " ");
+  }
+
   private nameToPersonFields(
     fullName: string,
+    fallbackLastName?: string,
   ): { first_name: string; last_name: string } {
     const parts = fullName.trim().split(/\s+/).filter(Boolean);
 
     if (parts.length === 1) {
-      return { first_name: parts[0], last_name: "-" };
+      return { first_name: parts[0], last_name: fallbackLastName || "-" };
     }
 
     return {

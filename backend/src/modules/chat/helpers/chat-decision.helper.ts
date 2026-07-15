@@ -49,6 +49,8 @@ function normalizeActionItem(value: unknown): AiActionItem {
     action,
     target_name:
       typeof obj.target_name === 'string' ? obj.target_name : null,
+    target_id:
+      typeof obj.target_id === 'string' ? obj.target_id : undefined,
     person:
       obj.person && typeof obj.person === 'object'
         ? (obj.person as AiActionItem['person'])

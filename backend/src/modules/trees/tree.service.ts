@@ -57,6 +57,7 @@ export class TreeService {
 
     const acceptedShares = await this.treeShareRepo.find({
       where: { sharedWithUserId: userId, status: TreeShareStatus.ACCEPTED, deletedAt: IsNull() },
+      relations: ['sharedByUser'],
     });
 
     const sharedTreeIds = acceptedShares.map((s) => s.treeId);
@@ -83,7 +84,7 @@ export class TreeService {
         return {
           ...mapTreeToResponse(tree),
           role: share.permission as 'VIEW' | 'EDIT',
-          sharedByEmail: share.sharedWithEmail,
+          sharedByEmail: share.sharedByUser?.email,
         };
       })
       .filter(Boolean);

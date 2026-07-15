@@ -61,6 +61,7 @@ export function PublicTreePage() {
               root={treeView.root}
               onNodeClick={() => {}}
               immersive
+              centerOnInitialLoad
             />
           </div>
         </section>

@@ -10,7 +10,6 @@ interface TreeAssistantPaneProps {
   onSend: (message: string, image?: ChatImagePayload) => void;
   onOpen: () => void;
   onClose: () => void;
-  onQuickAddPerson?: () => void;
 }
 
 export function TreeAssistantPane({
@@ -21,7 +20,6 @@ export function TreeAssistantPane({
   onSend,
   onOpen,
   onClose,
-  onQuickAddPerson,
 }: TreeAssistantPaneProps) {
   return (
     <>
@@ -39,7 +37,6 @@ export function TreeAssistantPane({
               onSend={onSend}
               treeName={treeName}
               onClose={onClose}
-              onQuickAddPerson={onQuickAddPerson}
             />
           </div>
         ) : (
@@ -61,7 +58,7 @@ export function TreeAssistantPane({
               aria-label="Open MyRoots Assistant"
             >
               <span className="rotate-90 whitespace-nowrap text-[11px] font-semibold tracking-[0.18em] text-text-muted">
-                ASSISTANT
+                ASK MYROOTS AI
               </span>
             </button>
 
@@ -93,7 +90,6 @@ export function TreeAssistantPane({
               onSend={onSend}
               treeName={treeName}
               onClose={onClose}
-              onQuickAddPerson={onQuickAddPerson}
             />
           </div>
         </div>
@@ -104,10 +100,11 @@ export function TreeAssistantPane({
         <button
           type="button"
           onClick={onOpen}
-          className="fixed bottom-6 right-6 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-lg transition hover:scale-105 lg:hidden"
-          aria-label="Open assistant"
+          className="fixed bottom-6 right-6 z-30 inline-flex h-12 items-center gap-2 rounded-full bg-gradient-to-b from-brand-500 to-brand-600 px-4 text-sm font-semibold text-white shadow-lg transition hover:scale-105 lg:hidden"
+          aria-label="Ask MyRoots AI"
         >
           <Sparkles className="h-5 w-5" />
+          Ask MyRoots AI
         </button>
       )}
     </>

@@ -1,11 +1,19 @@
-import { useState } from "react";
-import { Download, MoveLeft, Share2, Check } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Check, Download, MessageCircle, MoveLeft, Share2 } from "lucide-react";
+import { toast } from "sonner";
 import { Link } from "react-router-dom";
 import { PersonSearch } from "@/components/TreeView/PersonSearch";
 import { TreeTitleEditor } from "@/components/TreeView/TreeTitleEditor";
 import { Button } from "@/components/ui/Button";
-import { TreePersonNode } from "@/types/api.types";
+import { Gender, TreePersonNode } from "@/types/api.types";
 import { ROUTES } from "@/constants/app.constants";
+import { shareTreeSnapshot } from "@/utils/share-tree-snapshot";
+
+interface TreePeopleCounts {
+  men: number;
+  women: number;
+  total: number;
+}
 
 interface TreePageToolbarProps {
   treeName: string;
@@ -18,6 +26,53 @@ interface TreePageToolbarProps {
   onAddRoot: () => void;
   onSearchSelect: (person: TreePersonNode) => void;
   publicMode?: boolean;
+}
+
+function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
+  const counts: TreePeopleCounts = { men: 0, women: 0, total: 0 };
+  const visited = new Set<string>();
+
+  const visit = (person: TreePersonNode | null) => {
+    if (!person || visited.has(person.id)) return;
+
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+
+    visit(person.spouse);
+    person.children.forEach(visit);
+  };
+
+  visit(root);
+  return counts;
+}
+
+function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
+  if (counts.total === 0) return null;
+
+  const items = [
+    { label: "Men", value: counts.men },
+    { label: "Women", value: counts.women },
+    { label: "Total", value: counts.total },
+  ];
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
+      {items.map((item) => (
+        <span
+          key={item.label}
+          className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
+        >
+          {item.label}: {item.value}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function TreePageToolbar({
@@ -33,11 +88,37 @@ export function TreePageToolbar({
   publicMode = false,
 }: TreePageToolbarProps) {
   const [copied, setCopied] = useState(false);
+  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
+  const counts = useMemo(() => countTreePeople(root), [root]);
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(window.location.href);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareSnapshot = async () => {
+    if (counts.total === 0) return;
+
+    try {
+      setIsSharingSnapshot(true);
+      const mode = await shareTreeSnapshot({
+        treeName,
+        relativesCount: counts.total,
+        shareUrl: window.location.href,
+      });
+
+      if (mode === "whatsapp") {
+        toast.success("Snapshot downloaded and WhatsApp opened");
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      toast.error(
+        error instanceof Error ? error.message : "Could not share snapshot",
+      );
+    } finally {
+      setIsSharingSnapshot(false);
+    }
   };
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col gap-2 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-8 sm:py-5">
@@ -56,11 +137,15 @@ export function TreePageToolbar({
               onSave={onSaveTreeName}
               isSaving={isSavingTreeName}
             />
+            <TreePeopleCount counts={counts} />
           </>
         ) : (
-          <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
-            {treeName}
-          </h1>
+          <>
+            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+              {treeName}
+            </h1>
+            <TreePeopleCount counts={counts} />
+          </>
         )}
       </div>
 
@@ -87,6 +172,16 @@ export function TreePageToolbar({
                 <span className="hidden sm:inline">
                   {copied ? "Copied" : "Share"}
                 </span>
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleShareSnapshot}
+                loading={isSharingSnapshot}
+                className="h-auto w-12 shrink-0 gap-2 rounded-xl border-white/70 bg-white !px-0 shadow-none sm:h-11 sm:w-auto sm:rounded-xl sm:border-border-soft sm:bg-white sm:!px-5 sm:shadow-sm"
+                aria-label="Share relatives card on WhatsApp"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Card</span>
               </Button>
               <Button
                 variant="secondary"

@@ -75,9 +75,7 @@ function TreeCard({
             <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-text-secondary">
               {tree.description}
             </p>
-          ) : (
-            <p className="mt-1 text-sm text-text-muted">No description</p>
-          )}
+          ) : null}
           {tree.sharedByEmail && (
             <p className="mt-1 text-xs text-text-muted">
               Shared by {tree.sharedByEmail}

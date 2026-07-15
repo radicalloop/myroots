@@ -318,7 +318,13 @@ export function useDeletePerson(treeId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (personId: string) => deletePerson(treeId, personId),
+    mutationFn: ({
+      personId,
+      mode = 'person',
+    }: {
+      personId: string;
+      mode?: 'person' | 'branch';
+    }) => deletePerson(treeId, personId, mode),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TREE_VIEW(treeId) });
       toast.success('Person deleted successfully');

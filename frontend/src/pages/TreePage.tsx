@@ -198,6 +198,7 @@ export function TreePage() {
             root={treeView.root}
             onNodeClick={handleNodeClick}
             immersive
+            centerOnInitialLoad
           />
         </div>
       </section>
@@ -210,7 +211,6 @@ export function TreePage() {
         onSend={sendMessage}
         onOpen={() => setAssistantOpen(true)}
         onClose={() => setAssistantOpen(false)}
-        onQuickAddPerson={treeView.root ? undefined : openAddRoot}
       />
 
       <TreePageModals
@@ -229,9 +229,9 @@ export function TreePage() {
         onCloseDelete={() => {
           if (!deletePersonMutation.isPending) setPersonPendingDelete(null);
         }}
-        onConfirmDelete={() => {
+        onConfirmDelete={(mode) => {
           if (!personPendingDelete) return;
-          deletePersonMutation.mutate(personPendingDelete.id, {
+          deletePersonMutation.mutate({ personId: personPendingDelete.id, mode }, {
             onSuccess: () => {
               setPersonPendingDelete(null);
               closePanel();

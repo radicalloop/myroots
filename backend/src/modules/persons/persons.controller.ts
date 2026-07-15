@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { PersonService } from './person.service';
 import {
@@ -119,8 +120,9 @@ export class PersonsController {
     @Param('treeId', ParseUUIDPipe) treeId: string,
     @Param('personId', ParseUUIDPipe) personId: string,
     @CurrentUser() user: AuthUser,
+    @Query('mode') mode?: 'person' | 'branch',
   ) {
-    await this.personService.delete(treeId, personId, user.id);
+    await this.personService.delete(treeId, personId, user.id, mode);
     return ApiResponse.success(null, 'Person deleted successfully');
   }
 }

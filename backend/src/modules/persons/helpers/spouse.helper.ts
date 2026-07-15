@@ -186,26 +186,23 @@ export async function removeSpouseForPerson(
   const spouseId =
     link.personId === personId ? link.spouseId : link.personId;
 
-  // Reassign children whose parent_id points to the removed spouse
-  // to the remaining parent so they stay visible in the tree.
-  const childrenOfSpouse = await personRepo.find({
-    where: { treeId, parentId: spouseId, deletedAt: IsNull() },
-  });
-
-  if (childrenOfSpouse.length > 0) {
-    const now = new Date();
-    await personRepo.save(
-      childrenOfSpouse.map((child) => {
-        child.parentId = personId;
-        child.updatedAt = now;
-        return child;
-      }),
-    );
-  }
-
   const spousePerson = await personRepo.findOne({
     where: { id: spouseId, treeId, deletedAt: IsNull() },
   });
+
+  if (spousePerson) {
+    const now = new Date();
+
+    if (!spousePerson.parentId && !spousePerson.isRoot && person.parentId) {
+      spousePerson.parentId = person.parentId;
+      spousePerson.updatedAt = now;
+      await personRepo.save(spousePerson);
+    } else if (!person.parentId && !person.isRoot && spousePerson.parentId) {
+      person.parentId = spousePerson.parentId;
+      person.updatedAt = now;
+      await personRepo.save(person);
+    }
+  }
 
   return spousePerson ? mapPersonToResponse(spousePerson) : null;
 }

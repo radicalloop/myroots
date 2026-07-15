@@ -1,12 +1,6 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import {
-  Mic,
-  MicOff,
-  Plus,
-  SendHorizontal,
-  X,
-} from "lucide-react";
+import { Mic, MicOff, Plus, SendHorizontal, X } from "lucide-react";
 import { focusChatInput } from "@/utils/focusChatInput";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
@@ -139,11 +133,11 @@ export function TreeAssistantComposer({
           onClick={() => fileInputRef.current?.click()}
           disabled={isSending}
           aria-label="Attach an image"
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] border border-border-soft bg-white text-text-muted shadow-sm transition hover:border-warm-300 hover:text-text-secondary disabled:opacity-50"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border-soft bg-white text-text-muted transition hover:border-warm-300 hover:text-text-secondary disabled:opacity-50"
         >
-          <Plus className="h-6 w-6" />
+          <Plus className="h-5 w-5" />
         </button>
-        <div className="relative flex min-h-16 min-w-0 flex-1 items-center rounded-[22px] border border-border-soft bg-white shadow-sm transition focus-within:border-brand-400 focus-within:ring-[3px] focus-within:ring-brand-500/15">
+        <div className="relative flex min-h-11 min-w-0 flex-1 items-center rounded-xl border border-border-soft bg-white transition focus-within:border-brand-300 focus-within:ring-2 focus-within:ring-brand-500/10">
           <textarea
             ref={inputRef}
             value={input}
@@ -170,7 +164,7 @@ export function TreeAssistantComposer({
             }}
             placeholder="Ask about your family..."
             rows={1}
-            className="max-h-28 min-h-10 min-w-0 flex-1 resize-none rounded-[22px] border-0 bg-transparent py-2.5 pl-4 pr-11 text-base leading-5 text-text-primary outline-none scrollbar-none placeholder:text-text-muted [&::-webkit-scrollbar]:hidden"
+            className="max-h-28 min-h-9 min-w-0 flex-1 resize-none rounded-xl border-0 bg-transparent py-2 pl-4 pr-10 text-sm leading-5 text-text-primary outline-none scrollbar-none placeholder:text-text-muted [&::-webkit-scrollbar]:hidden"
           />
           {speechSupported && (
             <button
@@ -178,7 +172,7 @@ export function TreeAssistantComposer({
               onClick={listening ? stopSpeech : startSpeech}
               disabled={isSending}
               aria-label={listening ? "Stop recording" : "Start voice input"}
-              className={`absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-50 ${
+              className={`absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-50 ${
                 listening
                   ? "text-red-500 hover:bg-red-50 hover:text-red-600"
                   : "text-text-muted hover:bg-warm-50 hover:text-text-secondary"
@@ -186,14 +180,14 @@ export function TreeAssistantComposer({
             >
               {listening ? (
                 <>
-                  <MicOff className="pointer-events-none h-5 w-5" />
-                  <span className="pointer-events-none absolute right-0 top-0 flex h-2.5 w-2.5">
+                  <MicOff className="pointer-events-none h-4 w-4" />
+                  <span className="pointer-events-none absolute right-0 top-0 flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
                   </span>
                 </>
               ) : (
-                <Mic className="pointer-events-none h-5 w-5" />
+                <Mic className="pointer-events-none h-4 w-4" />
               )}
             </button>
           )}
@@ -201,10 +195,10 @@ export function TreeAssistantComposer({
         <button
           type="submit"
           disabled={isSending || (!input.trim() && !attachedImage)}
-          className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[22px] bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-sm transition hover:from-brand-600 hover:to-brand-700 hover:shadow-md active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white transition hover:bg-brand-600 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50"
           aria-label="Send message"
         >
-          <SendHorizontal className="h-6 w-6" aria-hidden="true" />
+          <SendHorizontal className="h-5 w-5" aria-hidden="true" />
         </button>
       </form>
     </div>

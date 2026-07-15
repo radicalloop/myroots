@@ -76,7 +76,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:items-center sm:p-4 "
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? "modal-title" : undefined}
@@ -90,8 +90,8 @@ export function Modal({
 
       <div
         className={clsx(
-          "relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden bg-white shadow-[var(--shadow-modal)]",
-          "animate-scale-in rounded-t-[var(--radius-card)] sm:max-h-[min(88vh,724px)] sm:rounded-[var(--radius-card)]",
+          "relative z-10 flex max-h-[100dvh] w-full flex-col overflow-hidden bg-white shadow-[var(--shadow-modal)]",
+          "animate-scale-in sm:rounded-b-[var(--radius-card)] sm:max-h-[min(88vh,724px)] sm:rounded-[var(--radius-card)]",
           sizeClasses[size],
         )}
       >

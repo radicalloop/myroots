@@ -274,21 +274,6 @@ export function ShareModal({
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                {share.status === "PENDING" && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label="Copy share link"
-                    onClick={() => handleCopyLink(share.token)}
-                    className="px-2"
-                  >
-                    {copiedToken === share.token ? (
-                      <Check className="h-3.5 w-3.5 text-green-600" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
-                )}
                 {isOwner && (
                   <>
                     <SharePermissionSelect

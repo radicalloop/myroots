@@ -133,6 +133,34 @@ export class ChatService {
       };
     }
 
+    const spouseRelationshipActions = this.buildSpouseRelationshipActions(
+      dto.message,
+      persons,
+    );
+    if (spouseRelationshipActions.length > 0) {
+      const outcome = await executeChatActions(
+        this.personRepo,
+        this.personService,
+        treeId,
+        userId,
+        persons,
+        spouseRelationshipActions,
+      );
+      const reply = buildResultReply(
+        this.buildSpouseRelationshipReply(spouseRelationshipActions),
+        outcome.results,
+      );
+      const action = summarizeChatAction(outcome.results);
+
+      return {
+        reply,
+        action: action === "NONE" ? "NONE" : action,
+        person: getLastAffectedPerson(outcome.results),
+        focus_person: getLastAffectedPerson(outcome.results),
+        results: outcome.results,
+      };
+    }
+
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
     if (directLookup) {
       return directLookup;
@@ -398,6 +426,77 @@ export class ChatService {
     if (resolved.kind !== "found") return null;
 
     return mapPersonToResponse(resolved.person);
+  }
+
+  private buildSpouseRelationshipActions(
+    message: string,
+    persons: Person[],
+  ): AiActionItem[] {
+    const normalizedMessage = message
+      .replace(/\*\*/g, "")
+      .replace(/^[\s*-]+/gm, "")
+      .trim();
+    const actions: AiActionItem[] = [];
+    const pattern =
+      /\badd\s+([A-Za-z][A-Za-z\s.'-]*?)\s+as\s+(?:the\s+)?(wife|husband|spouse)\s+of\s+([A-Za-z][A-Za-z\s.'-]*?)(?=\.|\n|$)/gi;
+
+    for (const match of normalizedMessage.matchAll(pattern)) {
+      const spouseName = match[1].trim();
+      const relationship = match[2].toLowerCase();
+      const targetName = match[3].trim();
+      if (!spouseName || !targetName) continue;
+
+      const target = resolvePersonByName(persons, targetName);
+      const resolvedTargetName =
+        target.kind === "found" ? formatPersonName(target.person) : targetName;
+      const spouse = resolvePersonByName(persons, spouseName);
+
+      actions.push({
+        action: "ADD_SPOUSE",
+        target_name: resolvedTargetName,
+        person:
+          spouse.kind === "found"
+            ? { spouse_name: formatPersonName(spouse.person) }
+            : spouse.kind === "ambiguous"
+              ? { spouse_name: spouseName }
+            : {
+                ...this.nameToPersonFields(spouseName),
+                gender: relationship === "husband" ? "MALE" : "FEMALE",
+              },
+      });
+    }
+
+    return actions;
+  }
+
+  private nameToPersonFields(
+    fullName: string,
+  ): { first_name: string; last_name: string } {
+    const parts = fullName.trim().split(/\s+/).filter(Boolean);
+
+    if (parts.length === 1) {
+      return { first_name: parts[0], last_name: "-" };
+    }
+
+    return {
+      first_name: parts.slice(0, -1).join(" "),
+      last_name: parts[parts.length - 1],
+    };
+  }
+
+  private buildSpouseRelationshipReply(actions: AiActionItem[]): string {
+    if (actions.length === 1) {
+      const action = actions[0];
+      const spouseName =
+        action.person?.spouse_name ??
+        [action.person?.first_name, action.person?.last_name]
+          .filter(Boolean)
+          .join(" ");
+
+      return `Added ${spouseName} as spouse of ${action.target_name}.`;
+    }
+
+    return `Added or linked ${actions.length} spouse relationships.`;
   }
 
   private handleDirectPersonLookup(

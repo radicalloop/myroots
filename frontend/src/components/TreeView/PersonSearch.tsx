@@ -27,6 +27,18 @@ function matchesQuery(person: TreePersonNode, query: string): boolean {
   );
 }
 
+function getFatherLabel(
+  person: TreePersonNode,
+  personById: Map<string, TreePersonNode>,
+): string | null {
+  if (!person.parent_id) return null;
+
+  const parent = personById.get(person.parent_id);
+  if (!parent) return null;
+
+  return `father: ${formatPersonName(parent)}`;
+}
+
 export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +47,10 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
   const [activeIndex, setActiveIndex] = useState(0);
 
   const allPersons = useMemo(() => flattenPersons(root), [root]);
+  const personById = useMemo(
+    () => new Map(allPersons.map((person) => [person.id, person])),
+    [allPersons],
+  );
 
   const results = useMemo(() => {
     if (!query.trim()) return [];
@@ -149,24 +165,35 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
           {results.length === 0 ? (
             <p className="px-4 py-3 text-sm text-text-muted">No people found</p>
           ) : (
-            results.map((person, index) => (
-              <button
-                key={person.id}
-                type="button"
-                role="option"
-                aria-selected={index === activeIndex}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => handleSelect(person)}
-                className={clsx(
-                  "mx-1.5 flex w-[calc(100%-12px)] items-center rounded-xl px-3 py-2.5 text-left text-sm transition-all duration-150",
-                  index === activeIndex
-                    ? "bg-brand-50 text-brand-800"
-                    : "text-text-primary hover:bg-warm-50",
-                )}
-              >
-                {formatPersonName(person)}
-              </button>
-            ))
+            results.map((person, index) => {
+              const fatherLabel = getFatherLabel(person, personById);
+
+              return (
+                <button
+                  key={person.id}
+                  type="button"
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  onMouseEnter={() => setActiveIndex(index)}
+                  onClick={() => handleSelect(person)}
+                  className={clsx(
+                    "mx-1.5 flex w-[calc(100%-12px)] flex-col items-start rounded-xl px-3 py-2.5 text-left transition-all duration-150",
+                    index === activeIndex
+                      ? "bg-brand-50 text-brand-800"
+                      : "text-text-primary hover:bg-warm-50",
+                  )}
+                >
+                  <span className="text-sm font-medium">
+                    {formatPersonName(person)}
+                  </span>
+                  {fatherLabel && (
+                    <span className="mt-0.5 text-[11px] lowercase text-text-muted">
+                      {fatherLabel}
+                    </span>
+                  )}
+                </button>
+              );
+            })
           )}
         </div>
       )}

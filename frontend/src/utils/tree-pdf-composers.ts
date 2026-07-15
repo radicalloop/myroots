@@ -67,7 +67,9 @@ export function drawPersonCard(
     drawInitialsAvatar(pdf, avatarCx, avatarCy, avatarR, initial || '?', scale);
   }
 
-  let textY = avatarCy + avatarR + s(RING_THICKNESS + 20, scale);
+  // Extra top gap between the avatar ring and the name (PDF export only).
+  const NAME_TOP_GAP = 30;
+  let textY = avatarCy + avatarR + s(RING_THICKNESS + NAME_TOP_GAP, scale);
 
   drawTextLine(
     pdf,

@@ -19,7 +19,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
-import { TreePersonNode } from "@/types/api.types";
+import { Gender, TreePersonNode } from "@/types/api.types";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
 import { useTreePublicContext } from "@/contexts/TreePublicContext";
 import { treeToFlowElements, PersonNodeData } from "./layoutTree";
@@ -35,6 +35,59 @@ import {
   ChatFocusNodeEventDetail,
 } from "@/utils/chat-focus-events";
 import { EmptyState } from "@/components/ui/EmptyState";
+
+interface TreePeopleCounts {
+  men: number;
+  women: number;
+  total: number;
+}
+
+function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
+  const counts: TreePeopleCounts = { men: 0, women: 0, total: 0 };
+  const visited = new Set<string>();
+
+  const visit = (person: TreePersonNode | null) => {
+    if (!person || visited.has(person.id)) return;
+
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+
+    visit(person.spouse);
+    person.children.forEach(visit);
+  };
+
+  visit(root);
+  return counts;
+}
+
+function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
+  if (counts.total === 0) return null;
+
+  const items = [
+    { label: "Men", value: counts.men },
+    { label: "Women", value: counts.women },
+    { label: "Total", value: counts.total },
+  ];
+
+  return (
+    <div className="absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
+      {items.map((item) => (
+        <span
+          key={item.label}
+          className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
+        >
+          {item.label}: {item.value}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 const nodeTypes = {
   personNode: PersonFlowNode,
@@ -91,6 +144,7 @@ function TreeFlow({
     () => treeToFlowElements(root),
     [root],
   );
+  const counts = useMemo(() => countTreePeople(root), [root]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
@@ -232,10 +286,11 @@ function TreeFlow({
     <div
       className={
         immersive
-          ? "h-full w-full overflow-hidden rounded-[22px] border border-border-soft bg-white shadow-[0_1px_2px_rgba(31,41,35,0.04)]"
-          : "h-full w-full overflow-hidden rounded-[var(--radius-card)] border border-border-soft bg-gradient-to-br from-warm-50 via-white to-brand-50/30 shadow-[var(--shadow-card)]"
+          ? "relative h-full w-full overflow-hidden rounded-[22px] border border-border-soft bg-white shadow-[0_1px_2px_rgba(31,41,35,0.04)]"
+          : "relative h-full w-full overflow-hidden rounded-[var(--radius-card)] border border-border-soft bg-gradient-to-br from-warm-50 via-white to-brand-50/30 shadow-[var(--shadow-card)]"
       }
     >
+      <TreePeopleCount counts={counts} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -275,13 +330,16 @@ function TreeFlow({
 export const FamilyTreeView = forwardRef<
   FamilyTreeViewHandle,
   FamilyTreeViewProps
->(function FamilyTreeView({
-  root,
-  onNodeClick,
-  immersive = false,
-  centerOnInitialLoad = false,
-  emptyStateAction,
-}, ref) {
+>(function FamilyTreeView(
+  {
+    root,
+    onNodeClick,
+    immersive = false,
+    centerOnInitialLoad = false,
+    emptyStateAction,
+  },
+  ref,
+) {
   if (!root) {
     return (
       <div

@@ -1,7 +1,7 @@
 import { TreePersonNode } from '@/types/api.types';
 
 export const PEDIGREE_NODE_WIDTH = 300;
-export const PEDIGREE_NODE_HEIGHT = 320;
+export const PEDIGREE_NODE_HEIGHT = 360;
 export const PEDIGREE_SIBLING_GAP = 64;
 export const PEDIGREE_RANK_GAP = 132;
 export const SPOUSE_GAP = 36;

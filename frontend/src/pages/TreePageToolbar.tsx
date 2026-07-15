@@ -1,18 +1,11 @@
-import { useMemo } from "react";
 import { Download, MoveLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PersonSearch } from "@/components/TreeView/PersonSearch";
 import { TreeTitleEditor } from "@/components/TreeView/TreeTitleEditor";
 import { Button } from "@/components/ui/Button";
-import { Gender, TreePersonNode } from "@/types/api.types";
+import { TreePersonNode } from "@/types/api.types";
 import { ROUTES } from "@/constants/app.constants";
 import { cn } from "@/lib/utils";
-
-interface TreePeopleCounts {
-  men: number;
-  women: number;
-  total: number;
-}
 
 interface TreePageToolbarProps {
   treeName: string;
@@ -28,53 +21,6 @@ interface TreePageToolbarProps {
   publicMode?: boolean;
 }
 
-function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
-  const counts: TreePeopleCounts = { men: 0, women: 0, total: 0 };
-  const visited = new Set<string>();
-
-  const visit = (person: TreePersonNode | null) => {
-    if (!person || visited.has(person.id)) return;
-
-    visited.add(person.id);
-    counts.total += 1;
-
-    if (person.gender === Gender.MALE) {
-      counts.men += 1;
-    } else if (person.gender === Gender.FEMALE) {
-      counts.women += 1;
-    }
-
-    visit(person.spouse);
-    person.children.forEach(visit);
-  };
-
-  visit(root);
-  return counts;
-}
-
-function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
-  if (counts.total === 0) return null;
-
-  const items = [
-    { label: "Men", value: counts.men },
-    { label: "Women", value: counts.women },
-    { label: "Total", value: counts.total },
-  ];
-
-  return (
-    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
-      {items.map((item) => (
-        <span
-          key={item.label}
-          className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
-        >
-          {item.label}: {item.value}
-        </span>
-      ))}
-    </div>
-  );
-}
-
 export function TreePageToolbar({
   treeName,
   root,
@@ -87,7 +33,6 @@ export function TreePageToolbar({
   onSearchSelect,
   publicMode = false,
 }: TreePageToolbarProps) {
-  const counts = useMemo(() => countTreePeople(root), [root]);
   const showSearch = !publicMode && Boolean(root);
   const showAddRoot = !publicMode && !root && canEdit;
   const showActionsBar = showSearch || showAddRoot;
@@ -125,15 +70,11 @@ export function TreePageToolbar({
               onSave={onSaveTreeName}
               isSaving={isSavingTreeName}
             />
-            <TreePeopleCount counts={counts} />
           </>
         ) : (
-          <>
-            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
-              {treeName}
-            </h1>
-            <TreePeopleCount counts={counts} />
-          </>
+          <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+            {treeName}
+          </h1>
         )}
       </div>
 

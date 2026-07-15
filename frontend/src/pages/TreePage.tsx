@@ -24,7 +24,7 @@ import { PersonFormValues } from "@/validations/family-tree.validation";
 import { TreePersonNode, UpdatePersonPayload } from "@/types/api.types";
 import { ROUTES } from "@/constants/app.constants";
 import { toPersonPayload, toAddParentPayload } from "@/utils/person.utils";
-import { findPersonInTree } from "@/utils/tree.utils";
+import { findPersonInTree, getFamilyChildrenForPerson } from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
 import { ShareModal } from "@/components/ShareModal";
@@ -63,6 +63,11 @@ export function TreePage() {
     if (!selectedPersonId || !treeView?.root) return null;
     return findPersonInTree(treeView.root, selectedPersonId);
   }, [selectedPersonId, treeView?.root]);
+
+  const activeFamilyChildren = useMemo(() => {
+    if (!activePerson || !treeView?.root) return [];
+    return getFamilyChildrenForPerson(treeView.root, activePerson);
+  }, [activePerson, treeView?.root]);
 
   const canEdit =
     !treeView || !treeView.tree.role || treeView.tree.role !== "VIEW";
@@ -235,6 +240,7 @@ export function TreePage() {
         treeId={treeId}
         panelMode={panelMode}
         activePerson={activePerson}
+        activeFamilyChildren={activeFamilyChildren}
         personPendingDelete={personPendingDelete}
         canEdit={canEdit}
         createLoading={createPersonMutation.isPending}

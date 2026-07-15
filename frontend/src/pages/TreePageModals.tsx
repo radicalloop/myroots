@@ -21,6 +21,7 @@ interface TreePageModalsProps {
   treeId: string;
   panelMode: TreePanelMode;
   activePerson: TreePersonNode | null;
+  activeFamilyChildren: TreePersonNode[];
   personPendingDelete: TreePersonNode | null;
   canEdit: boolean;
   createLoading: boolean;
@@ -52,6 +53,7 @@ export function TreePageModals({
   treeId,
   panelMode,
   activePerson,
+  activeFamilyChildren,
   personPendingDelete,
   canEdit,
   createLoading,
@@ -136,6 +138,7 @@ export function TreePageModals({
         {panelMode === "view" && activePerson && (
           <PersonViewBody
             person={activePerson}
+            familyChildren={activeFamilyChildren}
             canEdit={canEdit}
             onAddParent={onAddParent}
             onAddChild={onAddChild}

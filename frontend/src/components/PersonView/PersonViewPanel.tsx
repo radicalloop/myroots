@@ -48,6 +48,7 @@ interface PersonViewHeaderProps {
 
 interface PersonViewBodyProps {
   person: TreePersonNode;
+  familyChildren?: TreePersonNode[];
   canEdit: boolean;
   onAddParent: () => void;
   onAddChild: () => void;
@@ -364,6 +365,7 @@ export function PersonViewHeader({
 
 export function PersonViewBody({
   person,
+  familyChildren = person.children,
   canEdit,
   onAddParent,
   onAddChild,
@@ -527,19 +529,19 @@ export function PersonViewBody({
         )}
       </div>
 
-      {person.children.length > 0 && (
+      {familyChildren.length > 0 && (
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Family
             </h4>
             <span className="text-xs text-text-muted">
-              {person.children.length}{" "}
-              {person.children.length === 1 ? "child" : "children"}
+              {familyChildren.length}{" "}
+              {familyChildren.length === 1 ? "child" : "children"}
             </span>
           </div>
           <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-0.5">
-            {person.children.map((child) => (
+            {familyChildren.map((child) => (
               <div
                 key={child.id}
                 className="flex min-w-[130px] items-center gap-2 rounded-lg border border-border-subtle bg-white px-2 py-1.5"

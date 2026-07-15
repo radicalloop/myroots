@@ -55,6 +55,28 @@ export function findPersonInTree(
   return null;
 }
 
+export function getFamilyChildrenForPerson(
+  root: TreePersonNode,
+  person: TreePersonNode,
+): TreePersonNode[] {
+  const parentIds = new Set([person.id]);
+
+  if (person.spouse?.id) {
+    parentIds.add(person.spouse.id);
+  }
+
+  const children = flattenPersons(root).filter((candidate) =>
+    candidate.parent_id ? parentIds.has(candidate.parent_id) : false,
+  );
+  const seen = new Set<string>();
+
+  return children.filter((child) => {
+    if (seen.has(child.id)) return false;
+    seen.add(child.id);
+    return true;
+  });
+}
+
 export function updatePersonInTree(
   root: TreePersonNode,
   personId: string,

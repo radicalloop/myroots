@@ -23,6 +23,7 @@ import {
 import { ROUTES } from "@/constants/app.constants";
 import { TreePersonNode } from "@/types/api.types";
 import { shareTreeSnapshot } from "@/utils/share-tree-snapshot";
+import { SharePermissionSelect } from "@/components/SharePermissionSelect";
 
 interface ShareModalProps {
   treeId: string;
@@ -290,21 +291,16 @@ export function ShareModal({
                 )}
                 {isOwner && (
                   <>
-                    <select
+                    <SharePermissionSelect
                       value={share.permission}
-                      onChange={(e) =>
+                      onChange={(permission) =>
                         updateShare.mutate({
                           shareId: share.id,
-                          data: {
-                            permission: e.target.value as "VIEW" | "EDIT",
-                          },
+                          data: { permission },
                         })
                       }
-                      className="h-8 rounded-md border border-border-soft bg-bg-elevated px-2 text-xs text-text-primary"
-                    >
-                      <option value="VIEW">View</option>
-                      <option value="EDIT">Edit</option>
-                    </select>
+                      disabled={updateShare.isPending}
+                    />
                     <Button
                       variant="secondary"
                       size="sm"

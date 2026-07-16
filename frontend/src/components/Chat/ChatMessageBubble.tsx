@@ -38,9 +38,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
             className="mb-2 max-h-40 w-full rounded-xl border border-white/20 object-cover"
           />
         )}
-        {content && (
-          <MarkdownMessage content={content} inverted={isUser} />
-        )}
+        {content && <MarkdownMessage content={content} inverted={isUser} />}
       </div>
     </div>
   );
@@ -86,10 +84,10 @@ function MarkdownMessage({
             <pre
               key={index}
               className={clsx(
-                "max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-xl border px-3 py-2 text-xs leading-relaxed",
+                "max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-xl  px-3 py-2 text-xs leading-relaxed",
                 inverted
-                  ? "border-white/15 bg-black/10 text-white"
-                  : "border-border-subtle bg-warm-50 text-text-primary",
+                  ? " text-white !p-0 border-none"
+                  : " border-border-subtle bg-warm-50 text-text-primary",
               )}
             >
               <code>{block.text}</code>
@@ -297,7 +295,10 @@ function renderInlineMarkdown(text: string, inverted: boolean): ReactNode[] {
       parts.push(
         <strong
           key={key}
-          className={clsx("font-semibold", inverted ? "text-white" : "text-text-primary")}
+          className={clsx(
+            "font-semibold",
+            inverted ? "text-white" : "text-text-primary",
+          )}
         >
           {token.slice(2, -2)}
         </strong>,

@@ -1,19 +1,20 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation, useParams } from 'react-router-dom';
-import { LogIn, UserPlus, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { usePublicTreeView } from '@/hooks/api/useFamilyTree';
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useMatch, useParams } from "react-router-dom";
+import { LogIn, UserPlus, X } from "lucide-react";
+import { toast } from "sonner";
+import { usePublicTreeView } from "@/hooks/api/useFamilyTree";
 import {
   FamilyTreeView,
   FamilyTreeViewHandle,
-} from '@/components/TreeView/FamilyTreeView';
-import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
-import { ROUTES, STORAGE_KEYS } from '@/constants/app.constants';
-import { TreePersonNode } from '@/types/api.types';
-import { TreePageToolbar } from './TreePageToolbar';
-import { TreePublicProvider } from '@/contexts/TreePublicContext';
-import { useAuth } from '@/providers/AuthProvider';
+} from "@/components/TreeView/FamilyTreeView";
+import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import { ROUTES, STORAGE_KEYS } from "@/constants/app.constants";
+import { TreePersonNode } from "@/types/api.types";
+import { TreePageToolbar } from "./TreePageToolbar";
+import { TreePublicProvider } from "@/contexts/TreePublicContext";
+import { useAuth } from "@/providers/AuthProvider";
+import clsx from "clsx";
 
 const AUTH_PROMPT_DELAY_MS = 3000;
 const AUTH_PROMPT_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -36,8 +37,9 @@ function rememberAuthPromptDismissed(): void {
 }
 
 export function PublicTreePage() {
-  const { treeId = '' } = useParams();
+  const { treeId = "" } = useParams();
   const location = useLocation();
+  const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
   const { user } = useAuth();
   const { data: treeView, isLoading, isError } = usePublicTreeView(treeId);
   const treeViewRef = useRef<FamilyTreeViewHandle>(null);
@@ -68,9 +70,9 @@ export function PublicTreePage() {
     try {
       setIsDownloadingPdf(true);
       await treeViewRef.current?.downloadPdf(treeView.tree.name);
-      toast.success('PDF downloaded successfully');
+      toast.success("PDF downloaded successfully");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to download PDF: ${message}`);
     } finally {
       setIsDownloadingPdf(false);
@@ -121,7 +123,12 @@ export function PublicTreePage() {
             onSearchSelect={handleSearchSelect}
             publicMode
           />
-          <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
+          <div
+            className={clsx(
+              "min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28",
+              isPublicTree && "!pt-[78px]",
+            )}
+          >
             <FamilyTreeView
               ref={treeViewRef}
               root={treeView.root}
@@ -149,8 +156,8 @@ export function PublicTreePage() {
                   Save your family story
                 </p>
                 <p className="mt-1 text-sm leading-relaxed text-text-secondary">
-                  Create a free account or sign in to build your own tree,
-                  save edits, and keep exploring MyRoots.
+                  Create a free account or sign in to build your own tree, save
+                  edits, and keep exploring MyRoots.
                 </p>
               </div>
               <button

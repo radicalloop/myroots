@@ -3,6 +3,8 @@ import { ConfigService } from "@nestjs/config";
 import { InjectRepository } from "@nestjs/typeorm";
 import { IsNull, Repository } from "typeorm";
 import { Person } from "../../entities/Person";
+import { PersonSpouse } from "../../entities/PersonSpouse";
+import { User } from "../../entities/User";
 import { ApiError } from "../../utils/ApiError";
 import { TreeService } from "../trees/tree.service";
 import { PersonService } from "../persons/person.service";
@@ -11,6 +13,7 @@ import { S3Service } from "../storage/s3.service";
 import { ChatMessageDto } from "./dto/chat.dto";
 import {
   formatPersonName,
+  NameResolution,
   resolvePersonByName,
   toPersonSummaries,
   isDestructiveCommand,
@@ -78,6 +81,10 @@ export class ChatService {
   constructor(
     @InjectRepository(Person)
     private readonly personRepo: Repository<Person>,
+    @InjectRepository(PersonSpouse)
+    private readonly spouseRepo: Repository<PersonSpouse>,
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
     private readonly treeService: TreeService,
     private readonly personService: PersonService,
     private readonly aiService: AiService,
@@ -108,6 +115,13 @@ export class ChatService {
     const persons = await this.personRepo.find({
       where: { treeId, deletedAt: IsNull() },
       order: { createdAt: "ASC" },
+    });
+    const spouseRows = await this.spouseRepo.find({
+      where: { treeId, deletedAt: IsNull() },
+      order: { createdAt: "ASC" },
+    });
+    const currentUser = await this.userRepo.findOne({
+      where: { id: userId, deletedAt: IsNull() },
     });
 
     const importResult = await this.familyTreeImportService.tryImport(
@@ -184,6 +198,16 @@ export class ChatService {
         focus_person: getLastAffectedPerson(outcome.results),
         results: outcome.results,
       };
+    }
+
+    const relationshipLookup = this.handleCurrentUserRelationshipLookup(
+      persons,
+      spouseRows,
+      currentUser,
+      dto.message,
+    );
+    if (relationshipLookup) {
+      return relationshipLookup;
     }
 
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
@@ -295,7 +319,14 @@ export class ChatService {
     const aiResult = await this.aiService.callAi({
       systemPrompt: buildSystemPrompt(
         tree.name,
-        toPersonSummaries(persons),
+        toPersonSummaries(persons, spouseRows),
+        currentUser
+          ? {
+              firstName: currentUser.firstName,
+              lastName: currentUser.lastName,
+              email: currentUser.email,
+            }
+          : null,
       ),
       userMessage,
       image,
@@ -779,6 +810,285 @@ export class ChatService {
     return `Added or linked ${actions.length} spouse relationships.`;
   }
 
+  private handleCurrentUserRelationshipLookup(
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+    currentUser: User | null,
+    message: string,
+  ): ChatResult | null {
+    if (this.isCurrentUserRelationshipActionRequest(message)) return null;
+
+    const relationships = this.extractCurrentUserRelationships(message);
+    if (relationships.length === 0) return null;
+
+    if (!currentUser) {
+      return {
+        reply:
+          "I can't tell who 'my' refers to because I couldn't load the signed-in user.",
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    const currentPerson = this.resolveCurrentUserPerson(persons, currentUser);
+    if (currentPerson.kind === "not_found") {
+      return {
+        reply: `I know you're signed in as ${this.formatUserName(currentUser)}, but I couldn't find that exact person in this tree. Add or rename the matching person first, then I can answer questions like "my wife" or "my son".`,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    if (currentPerson.kind === "ambiguous") {
+      return {
+        reply: `I found multiple people named ${this.formatUserName(currentUser)} in this tree, so I can't safely tell which one is you. Please make the person names unique or ask using the person's full context.`,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    const replyParts: string[] = [];
+    const allRelatedPeople: Person[] = [];
+
+    for (const relationship of relationships) {
+      const relatedPeople = this.getRelatedPeople(
+        currentPerson.person,
+        relationship,
+        persons,
+        spouseRows,
+      );
+      allRelatedPeople.push(...relatedPeople);
+      replyParts.push(
+        this.buildRelationshipReply(relationship, relatedPeople),
+      );
+    }
+
+    const uniqueRelatedPeople = Array.from(
+      new Map(allRelatedPeople.map((person) => [person.id, person])).values(),
+    );
+
+    return {
+      reply: replyParts.join(" "),
+      action: "NONE",
+      person: null,
+      focus_person:
+        uniqueRelatedPeople.length === 1
+          ? mapPersonToResponse(uniqueRelatedPeople[0])
+          : null,
+      results: [],
+    };
+  }
+
+  private isCurrentUserRelationshipActionRequest(message: string): boolean {
+    return /\b(add|create|edit|update|change|set|link|upload|attach)\b/i.test(
+      message,
+    );
+  }
+
+  private extractCurrentUserRelationships(
+    message: string,
+  ): Array<
+    | "wife"
+    | "husband"
+    | "spouse"
+    | "son"
+    | "daughter"
+    | "children"
+    | "brother"
+    | "sister"
+    | "siblings"
+    | "father"
+    | "mother"
+    | "parents"
+  > {
+    const patterns: Array<{
+      relationship:
+        | "wife"
+        | "husband"
+        | "spouse"
+        | "son"
+        | "daughter"
+        | "children"
+        | "brother"
+        | "sister"
+        | "siblings"
+        | "father"
+        | "mother"
+        | "parents";
+      pattern: RegExp;
+    }> = [
+      { relationship: "wife", pattern: /\bmy\s+wife(?:'s)?\b/i },
+      { relationship: "husband", pattern: /\bmy\s+husband(?:'s)?\b/i },
+      { relationship: "spouse", pattern: /\bmy\s+spouse(?:'s)?\b/i },
+      { relationship: "son", pattern: /\bmy\s+sons?(?:'s)?\b/i },
+      { relationship: "daughter", pattern: /\bmy\s+daughters?(?:'s)?\b/i },
+      {
+        relationship: "children",
+        pattern: /\bmy\s+(?:children|child|kids?)(?:'s)?\b/i,
+      },
+      { relationship: "brother", pattern: /\bmy\s+brothers?(?:'s)?\b/i },
+      { relationship: "sister", pattern: /\bmy\s+sisters?(?:'s)?\b/i },
+      { relationship: "siblings", pattern: /\bmy\s+siblings?(?:'s)?\b/i },
+      { relationship: "father", pattern: /\bmy\s+(?:father|dad)(?:'s)?\b/i },
+      { relationship: "mother", pattern: /\bmy\s+(?:mother|mom)(?:'s)?\b/i },
+      { relationship: "parents", pattern: /\bmy\s+parents?(?:'s)?\b/i },
+    ];
+
+    return patterns
+      .filter(({ pattern }) => pattern.test(message))
+      .map(({ relationship }) => relationship);
+  }
+
+  private resolveCurrentUserPerson(
+    persons: Person[],
+    currentUser: User,
+  ): NameResolution {
+    const normalizedUserName = this.normalizeRelationshipName(
+      this.formatUserName(currentUser),
+    );
+    const matches = persons.filter(
+      (person) =>
+        this.normalizeRelationshipName(formatPersonName(person)) ===
+        normalizedUserName,
+    );
+
+    if (matches.length === 1) return { kind: "found", person: matches[0] };
+    if (matches.length > 1) return { kind: "ambiguous", matches };
+
+    return { kind: "not_found" };
+  }
+
+  private getRelatedPeople(
+    currentPerson: Person,
+    relationship: string,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+  ): Person[] {
+    const spouses = this.getSpouses(currentPerson, persons, spouseRows);
+    const childParentIds = new Set([
+      currentPerson.id,
+      ...spouses.map((spouse) => spouse.id),
+    ]);
+    const children = persons.filter(
+      (person) => person.parentId && childParentIds.has(person.parentId),
+    );
+    const siblings = currentPerson.parentId
+      ? persons.filter(
+          (person) =>
+            person.parentId === currentPerson.parentId &&
+            person.id !== currentPerson.id,
+        )
+      : [];
+    const parent = currentPerson.parentId
+      ? persons.find((person) => person.id === currentPerson.parentId) ?? null
+      : null;
+    const parents = parent
+      ? [
+          parent,
+          ...this.getSpouses(parent, persons, spouseRows),
+        ]
+      : [];
+
+    switch (relationship) {
+      case "wife":
+        return spouses.filter((person) => person.gender === "FEMALE");
+      case "husband":
+        return spouses.filter((person) => person.gender === "MALE");
+      case "spouse":
+        return spouses;
+      case "son":
+        return children.filter((person) => person.gender === "MALE");
+      case "daughter":
+        return children.filter((person) => person.gender === "FEMALE");
+      case "children":
+        return children;
+      case "brother":
+        return siblings.filter((person) => person.gender === "MALE");
+      case "sister":
+        return siblings.filter((person) => person.gender === "FEMALE");
+      case "siblings":
+        return siblings;
+      case "father":
+        return parents.filter((person) => person.gender === "MALE");
+      case "mother":
+        return parents.filter((person) => person.gender === "FEMALE");
+      case "parents":
+        return parents;
+      default:
+        return [];
+    }
+  }
+
+  private getSpouses(
+    person: Person,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+  ): Person[] {
+    const spouseIds = spouseRows
+      .filter((row) => row.personId === person.id || row.spouseId === person.id)
+      .map((row) => (row.personId === person.id ? row.spouseId : row.personId));
+
+    return spouseIds
+      .map((spouseId) => persons.find((candidate) => candidate.id === spouseId))
+      .filter((candidate): candidate is Person => Boolean(candidate));
+  }
+
+  private buildRelationshipReply(
+    relationship: string,
+    relatedPeople: Person[],
+  ): string {
+    const label = this.relationshipLabel(relationship, relatedPeople.length);
+    if (relatedPeople.length === 0) {
+      return `I couldn't find a recorded ${label} for you in this tree.`;
+    }
+
+    const names = relatedPeople.map((person) => formatPersonName(person));
+    if (relatedPeople.length === 1) {
+      return `Your ${label} is ${names[0]}.`;
+    }
+
+    return `Your ${label} are ${this.joinNames(names)}.`;
+  }
+
+  private relationshipLabel(relationship: string, count: number): string {
+    const labels: Record<string, { singular: string; plural: string }> = {
+      wife: { singular: "wife", plural: "wives" },
+      husband: { singular: "husband", plural: "husbands" },
+      spouse: { singular: "spouse", plural: "spouses" },
+      son: { singular: "son", plural: "sons" },
+      daughter: { singular: "daughter", plural: "daughters" },
+      children: { singular: "child", plural: "children" },
+      brother: { singular: "brother", plural: "brothers" },
+      sister: { singular: "sister", plural: "sisters" },
+      siblings: { singular: "sibling", plural: "siblings" },
+      father: { singular: "father", plural: "fathers" },
+      mother: { singular: "mother", plural: "mothers" },
+      parents: { singular: "parent", plural: "parents" },
+    };
+    const label = labels[relationship] ?? {
+      singular: relationship,
+      plural: relationship,
+    };
+
+    return count <= 1 ? label.singular : label.plural;
+  }
+
+  private joinNames(names: string[]): string {
+    if (names.length <= 2) return names.join(" and ");
+
+    return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  }
+
+  private formatUserName(user: User): string {
+    return [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+  }
+
   private handleDirectPersonLookup(
     persons: Person[],
     message: string,
@@ -1053,6 +1363,10 @@ export class ChatService {
       where: { treeId, deletedAt: IsNull() },
       order: { createdAt: "ASC" },
     });
+    const spouseRows = await this.spouseRepo.find({
+      where: { treeId, deletedAt: IsNull() },
+      order: { createdAt: "ASC" },
+    });
 
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
     if (directLookup) {
@@ -1067,7 +1381,7 @@ export class ChatService {
     const aiResult = await this.aiService.callAi({
       systemPrompt: buildSystemPrompt(
         tree.name,
-        toPersonSummaries(persons),
+        toPersonSummaries(persons, spouseRows),
       ),
       userMessage: dto.message,
       conversationHistory: dto.previousMessages ?? [],

@@ -18,11 +18,15 @@ export async function verifyPassword(
 export function sanitizeUser(user: {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
   createdAt: Date;
 }): AuthUser & { createdAt: Date } {
   return {
     id: user.id,
     email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
     createdAt: user.createdAt,
   };
 }

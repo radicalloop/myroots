@@ -1,8 +1,28 @@
+export interface CurrentUserPromptContext {
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
 export function buildSystemPrompt(
   treeName: string,
   persons: Record<string, unknown>[],
+  currentUser?: CurrentUserPromptContext | null,
 ): string {
+  const currentUserDetails = currentUser
+    ? `Current signed-in user:
+${JSON.stringify({
+  first_name: currentUser.firstName,
+  last_name: currentUser.lastName,
+  email: currentUser.email,
+})}
+
+When the user says "my wife", "my husband", "my son", "my daughter", "my child", "my brother", "my sister", "my father", "my mother", or similar, interpret "my" as the current signed-in user. First match the current user to exactly one existing person in this tree by first_name + last_name. If there is no exact match or there are multiple exact matches, do not guess; explain that the signed-in user is not uniquely matched to a person in this tree.`
+    : `There is no signed-in user context for this chat. If the user says "my wife", "my son", "my brother", or similar, do not guess who "my" refers to; ask them to name the person.`;
+
   return `You are an assistant embedded inside a family tree application, currently scoped to a single tree named "${treeName}". You are only allowed to help with THIS tree.
+
+${currentUserDetails}
 
 You may ONLY do the following:
 1. Answer questions about the people already in this tree.

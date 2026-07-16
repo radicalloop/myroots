@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { SignupDto, LoginDto } from './dto/auth.dto';
+import { SignupDto, LoginDto, UpdateProfileDto } from './dto/auth.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AuthUser } from '../../types/common.types';
@@ -31,5 +31,14 @@ export class AuthController {
   async getMe(@CurrentUser() user: AuthUser) {
     const data = await this.authService.getMe(user.id);
     return ApiResponse.success(data, 'User fetched successfully');
+  }
+
+  @Patch('me')
+  async updateMe(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateProfileDto,
+  ) {
+    const data = await this.authService.updateProfile(user.id, dto);
+    return ApiResponse.success(data, 'Profile updated successfully');
   }
 }

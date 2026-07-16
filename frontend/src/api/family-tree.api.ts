@@ -17,13 +17,21 @@ import {
 } from '@/types/api.types';
 import { SendChatMessagePayload, ChatResponse } from '@/types/chat.types';
 
-export const signup = (data: { email: string; password: string }) =>
+export const signup = (data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}) =>
   api.post<ApiSuccessResponse<AuthResponse>>('/auth/signup', data);
 
 export const login = (data: { email: string; password: string }) =>
   api.post<ApiSuccessResponse<AuthResponse>>('/auth/login', data);
 
 export const getMe = () => api.get<ApiSuccessResponse<User>>('/auth/me');
+
+export const updateMe = (data: { firstName: string; lastName: string }) =>
+  api.patch<ApiSuccessResponse<User>>('/auth/me', data);
 
 export const getTrees = () => api.get<ApiSuccessResponse<Tree[]>>('/trees');
 

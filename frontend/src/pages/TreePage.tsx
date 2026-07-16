@@ -35,10 +35,12 @@ import { ShareModal } from "@/components/ShareModal";
 import { cn } from "@/lib/utils";
 import { TreePageModals, TreePanelMode } from "./TreePageModals";
 import { TreePageToolbar } from "./TreePageToolbar";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function TreePage() {
   const { treeId = "" } = useParams();
   const { data: treeView, isLoading, isError } = useTreeView(treeId);
+  const { user } = useAuth();
   const createPersonMutation = useCreatePerson(treeId);
   const addParentMutation = useAddParent(treeId);
   const addSpouseMutation = useAddSpouse(treeId);
@@ -49,6 +51,9 @@ export function TreePage() {
   const uploadImageMutation = useUploadPersonImage(treeId);
   const deleteImageMutation = useDeletePersonImage(treeId);
   const { messages, isSending, sendMessage, treeName } = useChatBot(true);
+  const currentUserName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(" ");
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<TreePanelMode>("none");
@@ -240,6 +245,7 @@ export function TreePage() {
         messages={messages}
         isSending={isSending}
         treeName={treeName ?? treeView.tree.name}
+        currentUserName={currentUserName}
         onSend={sendMessage}
         onOpen={() => setAssistantOpen(true)}
         onClose={() => setAssistantOpen(false)}

@@ -5,6 +5,7 @@ import {
   login,
   signup,
   getMe,
+  updateMe,
   getTrees,
   createTree,
   updateTree,
@@ -105,6 +106,22 @@ export function useSignup() {
       setAuth(accessToken, user);
       toast.success('Account created successfully');
       navigate(redirectTo);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
+export function useUpdateProfile() {
+  const { setUser } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateMe,
+    onSuccess: (res) => {
+      const user = res.data.data;
+      setUser(user);
+      queryClient.setQueryData(QUERY_KEYS.ME, user);
+      toast.success('Profile updated successfully');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });

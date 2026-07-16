@@ -23,6 +23,7 @@ export function Input({
   const inputId = id ?? props.name;
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
+  const isDate = type === "date";
   const inputType = isPassword && showPassword ? "text" : type;
   const isInactive = disabled || readOnly;
 
@@ -52,6 +53,7 @@ export function Input({
             "w-full rounded-[var(--radius-input)] border px-3.5 py-2.5 text-sm",
             "placeholder:text-text-muted transition-all duration-200 outline-none",
             isPassword && "pr-11",
+            isDate && "input-date",
             isInactive
               ? [
                   "border-border-soft bg-warm-100 text-text-muted",

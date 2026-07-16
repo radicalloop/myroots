@@ -14,6 +14,7 @@ interface TreeAssistantProps {
   isSending: boolean;
   onSend: (message: string, image?: ChatImagePayload) => void;
   treeName?: string;
+  currentUserName?: string;
   onClose?: () => void;
 }
 
@@ -22,6 +23,7 @@ export function TreeAssistant({
   isSending,
   onSend,
   treeName,
+  currentUserName,
   onClose,
 }: TreeAssistantProps) {
   const [input, setInput] = useState("");
@@ -154,7 +156,7 @@ export function TreeAssistant({
                 <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
               <div className="rounded-2xl bg-warm-50 px-4 py-3 text-sm leading-relaxed text-text-primary">
-                Hi! I can help you explore this tree — ask about people, add
+                Hi{currentUserName ? ` ${currentUserName}` : ""}! I can help you explore this tree — ask about people, add
                 someone new, or edit details.
               </div>
             </div>

@@ -7,6 +7,7 @@ import { TreeWorkspaceLayout } from '@/layouts/TreeWorkspaceLayout';
 import { LoginPage } from '@/pages/LoginPage';
 import { SignupPage } from '@/pages/SignupPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { ProfilePage } from '@/pages/ProfilePage';
 import { TreePageWrapper } from '@/pages/TreePageWrapper';
 import { PublicTreePage } from '@/pages/PublicTreePage';
 import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
@@ -32,6 +33,7 @@ export function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path={ROUTES.DASHBOARD} element={<DashboardPage />} />
+                <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
               </Route>
               <Route path="/accept-share/:token" element={<AcceptInvitePage />} />
             </Route>

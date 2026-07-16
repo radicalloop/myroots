@@ -6,7 +6,7 @@ import { IsNull, Repository } from 'typeorm';
 import { User } from '../../entities/User';
 import { ApiError } from '../../utils/ApiError';
 import { hashPassword, verifyPassword, sanitizeUser } from './helpers/auth.helper';
-import { SignupDto, LoginDto } from './dto/auth.dto';
+import { SignupDto, LoginDto, UpdateProfileDto } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +33,8 @@ export class AuthService {
     const user = this.userRepo.create({
       email: dto.email.toLowerCase(),
       password,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
     });
     const saved = await this.userRepo.save(user);
     const accessToken = this.signAccessToken(saved.id, saved.email);
@@ -68,7 +70,13 @@ export class AuthService {
   async getMe(userId: string) {
     const user = await this.userRepo.findOne({
       where: { id: userId, deletedAt: IsNull() },
-      select: { id: true, email: true, createdAt: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        createdAt: true,
+      },
     });
 
     if (!user) {
@@ -76,6 +84,22 @@ export class AuthService {
     }
 
     return sanitizeUser(user);
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId, deletedAt: IsNull() },
+    });
+
+    if (!user) {
+      throw new ApiError(404, 'User not found');
+    }
+
+    user.firstName = dto.firstName;
+    user.lastName = dto.lastName;
+
+    const saved = await this.userRepo.save(user);
+    return sanitizeUser(saved);
   }
 
   private signAccessToken(userId: string, email: string): string {

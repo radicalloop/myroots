@@ -5,6 +5,7 @@ import {
   login,
   signup,
   getMe,
+  updateMe,
   getTrees,
   createTree,
   updateTree,
@@ -55,7 +56,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function useMe() {
+export function useMe(options?: { enabled?: boolean }) {
   const { setUser, isAuthenticated } = useAuth();
 
   return useQuery({
@@ -65,7 +66,7 @@ export function useMe() {
       setUser(res.data.data);
       return res.data.data;
     },
-    enabled: isAuthenticated,
+    enabled: (options?.enabled ?? true) && isAuthenticated,
     retry: false,
   });
 }
@@ -105,6 +106,22 @@ export function useSignup() {
       setAuth(accessToken, user);
       toast.success('Account created successfully');
       navigate(redirectTo);
+    },
+    onError: (err) => toast.error(getErrorMessage(err)),
+  });
+}
+
+export function useUpdateProfile() {
+  const { setUser } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateMe,
+    onSuccess: (res) => {
+      const user = res.data.data;
+      setUser(user);
+      queryClient.setQueryData(QUERY_KEYS.ME, user);
+      toast.success('Profile updated successfully');
     },
     onError: (err) => toast.error(getErrorMessage(err)),
   });

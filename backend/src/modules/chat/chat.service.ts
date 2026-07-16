@@ -200,6 +200,16 @@ export class ChatService {
       };
     }
 
+    const familyOverview = this.handleFamilyOverviewQuery(
+      tree.name,
+      persons,
+      spouseRows,
+      dto.message,
+    );
+    if (familyOverview) {
+      return familyOverview;
+    }
+
     const relationshipLookup = this.handleCurrentUserRelationshipLookup(
       persons,
       spouseRows,
@@ -902,6 +912,137 @@ export class ChatService {
     return `Added or linked ${actions.length} spouse relationships.`;
   }
 
+  private handleFamilyOverviewQuery(
+    treeName: string,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+    message: string,
+  ): ChatResult | null {
+    if (!this.isFamilyOverviewQuery(message)) return null;
+
+    return {
+      reply: this.buildFamilyOverviewReply(treeName, persons, spouseRows),
+      action: "NONE",
+      person: null,
+      focus_person: null,
+      results: [],
+    };
+  }
+
+  private isFamilyOverviewQuery(message: string): boolean {
+    const normalized = message.trim().toLowerCase();
+
+    return (
+      /\b(tell me about|describe|summarize|summary|overview|explain)\b/.test(
+        normalized,
+      ) &&
+      /\b(my\s+)?family\s+(history|tree|lineage)\b/.test(normalized)
+    ) || /\bwhat\s+is\s+(my\s+)?family\s+(history|tree|lineage)\b/.test(
+      normalized,
+    );
+  }
+
+  private buildFamilyOverviewReply(
+    treeName: string,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+  ): string {
+    if (persons.length === 0) {
+      return `## ${treeName}\nNo people have been added to this family tree yet.`;
+    }
+
+    const root =
+      persons.find((person) => person.isRoot) ??
+      persons.find((person) => !person.parentId) ??
+      persons[0];
+    const men = persons.filter((person) => person.gender === "MALE").length;
+    const women = persons.filter((person) => person.gender === "FEMALE").length;
+    const other = persons.length - men - women;
+    const generationCount = this.countGenerations(root, persons, spouseRows);
+    const surnames = this.getCommonSurnames(persons);
+    const rootChildren = this.getFamilyChildren(root, persons, spouseRows);
+
+    const lines = [
+      `## ${treeName} overview`,
+      `- **Earliest recorded person:** ${formatPersonName(root)}`,
+      `- **People recorded:** ${persons.length}`,
+      `- **Gender split:** ${men} men, ${women} women${other > 0 ? `, ${other} other` : ""}`,
+      `- **Generations:** ${generationCount}`,
+      `- **Couples recorded:** ${spouseRows.length}`,
+    ];
+
+    if (surnames.length > 0) {
+      lines.push(`- **Family names:** ${surnames.join(", ")}`);
+    }
+
+    if (rootChildren.length > 0) {
+      lines.push(
+        "",
+        "## Main branches",
+        ...rootChildren
+          .slice(0, 8)
+          .map((child) => `- **${formatPersonName(child)}**`),
+      );
+    }
+
+    lines.push(
+      "",
+      "You can ask me about any person, spouse, children, ancestors, or a specific branch in this tree.",
+    );
+
+    return lines.join("\n");
+  }
+
+  private countGenerations(
+    root: Person,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+  ): number {
+    const visit = (person: Person, seen: Set<string>): number => {
+      if (seen.has(person.id)) return 0;
+
+      const children = this.getFamilyChildren(person, persons, spouseRows);
+      if (children.length === 0) return 1;
+
+      const nextSeen = new Set(seen);
+      nextSeen.add(person.id);
+
+      return 1 + Math.max(...children.map((child) => visit(child, nextSeen)));
+    };
+
+    return visit(root, new Set());
+  }
+
+  private getFamilyChildren(
+    person: Person,
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+  ): Person[] {
+    const parentIds = new Set<string>([
+      person.id,
+      ...this.getSpouses(person, persons, spouseRows).map((spouse) => spouse.id),
+    ]);
+
+    return persons.filter(
+      (candidate) => candidate.parentId && parentIds.has(candidate.parentId),
+    );
+  }
+
+  private getCommonSurnames(persons: Person[]): string[] {
+    const counts = new Map<string, number>();
+
+    for (const person of persons) {
+      const lastName = person.lastName.trim();
+      if (!lastName || lastName === "-") continue;
+      counts.set(lastName, (counts.get(lastName) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .slice(0, 6)
+      .map(([lastName]) => lastName);
+  }
+
   private handleCurrentUserRelationshipLookup(
     persons: Person[],
     spouseRows: PersonSpouse[],
@@ -1463,6 +1604,16 @@ export class ChatService {
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
     if (directLookup) {
       return { reply: directLookup.reply };
+    }
+
+    const familyOverview = this.handleFamilyOverviewQuery(
+      tree.name,
+      persons,
+      spouseRows,
+      dto.message,
+    );
+    if (familyOverview) {
+      return { reply: familyOverview.reply };
     }
 
     const aiProvider = parseAiModalProvider(

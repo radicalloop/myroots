@@ -154,8 +154,8 @@ export function TreePage() {
   };
 
   const handleSearchSelect = (person: TreePersonNode) => {
+    closePanel();
     announceChatFocusNode(treeId, person.id, { force: true, source: "search" });
-    handleNodeClick(person);
   };
 
   const handleSaveTreeName = (name: string) => {

@@ -63,7 +63,7 @@ function TreeCard({
 
   return (
     <Card hover padding="md" className="group flex flex-col">
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-100">
           <TreePine className="h-5 w-5" aria-hidden="true" />
         </div>
@@ -75,7 +75,7 @@ function TreeCard({
             {roleBadge(tree.role)}
           </div>
           {tree.description ? (
-            <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-text-secondary">
+            <p className="-m-0.5 line-clamp-2 text-sm leading-relaxed text-text-secondary">
               {tree.description}
             </p>
           ) : null}

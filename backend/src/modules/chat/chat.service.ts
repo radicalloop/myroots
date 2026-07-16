@@ -72,11 +72,17 @@ interface PendingBulkUpdate {
   originalAiReply: string;
 }
 
+interface PendingMissingLastNameUpdate {
+  originalAiReply: string;
+}
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
   private readonly pendingImages = new Map<string, PendingChatImage>();
   private readonly pendingBulkUpdates = new Map<string, PendingBulkUpdate>();
+  private readonly pendingMissingLastNameUpdates =
+    new Map<string, PendingMissingLastNameUpdate>();
 
   constructor(
     @InjectRepository(Person)
@@ -247,6 +253,8 @@ export class ChatService {
 
     // ── Handle pending bulk-update confirmation / rejection ──────────────
     let pendingBulk = this.pendingBulkUpdates.get(cacheKey);
+    let pendingMissingLastName =
+      this.pendingMissingLastNameUpdates.get(cacheKey);
 
     // If the user sends an unrelated message (not confirm/reject) while
     // pending state exists, treat it as a new independent intent.
@@ -254,6 +262,46 @@ export class ChatService {
       this.logger.log(`Clearing pending bulk update due to new independent query`);
       this.clearPendingState(treeId, userId);
       pendingBulk = undefined;
+    }
+
+    if (pendingMissingLastName && this.isIndependentQuery(dto.message)) {
+      this.logger.log(
+        `Clearing pending missing-last-name update due to new independent query`,
+      );
+      this.clearPendingState(treeId, userId);
+      pendingMissingLastName = undefined;
+    }
+
+    if (pendingMissingLastName) {
+      const lastName = this.extractMissingLastNameValue(dto.message);
+      if (lastName) {
+        const result = await this.executeMissingLastNameUpdate(treeId, lastName);
+        this.pendingMissingLastNameUpdates.delete(cacheKey);
+        return {
+          reply: `Updated ${result.updatedCount} people with missing last names to "${lastName}".`,
+          action: "BULK_UPDATE_PERSONS",
+          person: null,
+          focus_person: null,
+          results: [result],
+        };
+      }
+
+      return {
+        reply: pendingMissingLastName.originalAiReply,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    const missingLastNameRequest = await this.handleMissingLastNameUpdateRequest(
+      treeId,
+      cacheKey,
+      dto.message,
+    );
+    if (missingLastNameRequest) {
+      return missingLastNameRequest;
     }
 
     if (pendingBulk) {
@@ -1443,6 +1491,75 @@ export class ChatService {
     const key = this.pendingKey(treeId, userId);
     this.pendingImages.delete(key);
     this.pendingBulkUpdates.delete(key);
+    this.pendingMissingLastNameUpdates.delete(key);
+  }
+
+  private async handleMissingLastNameUpdateRequest(
+    treeId: string,
+    cacheKey: string,
+    message: string,
+  ): Promise<ChatResult | null> {
+    if (!this.isMissingLastNameUpdateRequest(message)) return null;
+
+    const lastName = this.extractMissingLastNameValue(message);
+    if (lastName) {
+      const result = await this.executeMissingLastNameUpdate(treeId, lastName);
+      return {
+        reply: `Updated ${result.updatedCount} people with missing last names to "${lastName}".`,
+        action: "BULK_UPDATE_PERSONS",
+        person: null,
+        focus_person: null,
+        results: [result],
+      };
+    }
+
+    const reply =
+      'I can update missing last names, but I need the last name value. Please reply with the last name, for example: "Shah".';
+    this.pendingMissingLastNameUpdates.set(cacheKey, {
+      originalAiReply: reply,
+    });
+
+    return {
+      reply,
+      action: "NONE",
+      person: null,
+      focus_person: null,
+      results: [],
+    };
+  }
+
+  private isMissingLastNameUpdateRequest(message: string): boolean {
+    const normalized = message.toLowerCase();
+
+    return (
+      /\b(update|change|set|fill)\b/.test(normalized) &&
+      /\blast\s+name\b/.test(normalized) &&
+      /\b(missing|empty|blank|null|not\s+set|no\s+last\s+name)\b/.test(
+        normalized,
+      )
+    );
+  }
+
+  private extractMissingLastNameValue(message: string): string | null {
+    const patterns = [
+      /\blast\s+name\s+(?:to|as)\s+["']?([A-Za-z][A-Za-z\s.'-]{0,98})["']?/i,
+      /\blast\s+name\s+["']([A-Za-z][A-Za-z\s.'-]{0,98})["']/i,
+      /\bto\s+["']([A-Za-z][A-Za-z\s.'-]{0,98})["']/i,
+      /["']([A-Za-z][A-Za-z\s.'-]{0,98})["']/i,
+      /^["']?([A-Za-z][A-Za-z\s.'-]{0,98})["']?$/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = message.trim().match(pattern);
+      const value = match?.[1]
+        ?.trim()
+        .replace(/[.!?]+$/g, "")
+        .replace(/^["']|["']$/g, "")
+        .trim();
+      if (value && !/\s/.test(value)) return value;
+    }
+
+    return null;
   }
 
   /**
@@ -1558,6 +1675,38 @@ export class ChatService {
         person: null,
         success: false,
         error: message,
+        updatedCount: 0,
+      };
+    }
+  }
+
+  private async executeMissingLastNameUpdate(
+    treeId: string,
+    lastName: string,
+  ): Promise<ChatActionResult> {
+    try {
+      const result = await this.personRepo
+        .createQueryBuilder()
+        .update(Person)
+        .set({ lastName })
+        .where("treeId = :treeId AND deletedAt IS NULL", { treeId })
+        .andWhere(
+          `(lastName IS NULL OR TRIM(lastName) = '' OR TRIM(lastName) = '-')`,
+        )
+        .execute();
+
+      return {
+        action: "BULK_UPDATE_PERSONS",
+        person: null,
+        success: true,
+        updatedCount: result.affected ?? 0,
+      };
+    } catch {
+      return {
+        action: "BULK_UPDATE_PERSONS",
+        person: null,
+        success: false,
+        error: "Could not update missing last names.",
         updatedCount: 0,
       };
     }

@@ -1691,7 +1691,7 @@ export class ChatService {
         .set({ lastName })
         .where("treeId = :treeId AND deletedAt IS NULL", { treeId })
         .andWhere(
-          `(lastName IS NULL OR TRIM(lastName) = '' OR TRIM(lastName) = '-')`,
+          `(lastName IS NULL OR TRIM(lastName) = '' OR TRIM(lastName) = '-' OR TRIM(lastName) = '.')`,
         )
         .execute();
 

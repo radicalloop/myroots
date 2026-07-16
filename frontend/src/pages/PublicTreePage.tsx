@@ -1,20 +1,23 @@
-import { useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { toast } from 'sonner';
-import { usePublicTreeView } from '@/hooks/api/useFamilyTree';
+import { useRef, useState } from "react";
+import { Link, useLocation, useMatch, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { usePublicTreeView } from "@/hooks/api/useFamilyTree";
 import {
   FamilyTreeView,
   FamilyTreeViewHandle,
-} from '@/components/TreeView/FamilyTreeView';
-import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
-import { ROUTES } from '@/constants/app.constants';
-import { TreePersonNode } from '@/types/api.types';
-import { TreePageToolbar } from './TreePageToolbar';
-import { TreePublicProvider } from '@/contexts/TreePublicContext';
+} from "@/components/TreeView/FamilyTreeView";
+import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
+import { ROUTES } from "@/constants/app.constants";
+import { TreePersonNode } from "@/types/api.types";
+import { TreePageToolbar } from "./TreePageToolbar";
+import { TreePublicProvider } from "@/contexts/TreePublicContext";
+import clsx from "clsx";
 
 export function PublicTreePage() {
-  const { treeId = '' } = useParams();
+  const { treeId = "" } = useParams();
+  const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
+
   const { data: treeView, isLoading, isError } = usePublicTreeView(treeId);
   const treeViewRef = useRef<FamilyTreeViewHandle>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -29,9 +32,9 @@ export function PublicTreePage() {
     try {
       setIsDownloadingPdf(true);
       await treeViewRef.current?.downloadPdf(treeView.tree.name);
-      toast.success('PDF downloaded successfully');
+      toast.success("PDF downloaded successfully");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast.error(`Failed to download PDF: ${message}`);
     } finally {
       setIsDownloadingPdf(false);
@@ -77,7 +80,12 @@ export function PublicTreePage() {
             onSearchSelect={handleSearchSelect}
             publicMode
           />
-          <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
+          <div
+            className={clsx(
+              "min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28",
+              isPublicTree && "!pt-[78px]",
+            )}
+          >
             <FamilyTreeView
               ref={treeViewRef}
               root={treeView.root}

@@ -35,6 +35,8 @@ import {
   ChatFocusNodeEventDetail,
 } from "@/utils/chat-focus-events";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useMatch } from "react-router-dom";
+import clsx from "clsx";
 
 interface TreePeopleCounts {
   men: number;
@@ -68,6 +70,7 @@ function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
 
 function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
   if (counts.total === 0) return null;
+  const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
 
   const items = [
     { label: "Men", value: counts.men },
@@ -76,7 +79,12 @@ function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
   ];
 
   return (
-    <div className="absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
+    <div
+      className={clsx(
+        "absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary",
+        isPublicTree && "!top-4",
+      )}
+    >
       {items.map((item) => (
         <span
           key={item.label}

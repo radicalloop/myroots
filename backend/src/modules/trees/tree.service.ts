@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Repository } from 'typeorm';
 import { Tree } from '../../entities/Tree';
 import { User } from '../../entities/User';
+import { Person } from '../../entities/Person';
 import { TreeShare, TreeSharePermission, TreeShareStatus } from '../../entities/TreeShare';
 import { ApiError } from '../../utils/ApiError';
 import { CreateTreeDto, UpdateTreeDto } from './dto/tree.dto';
@@ -10,6 +11,7 @@ import { CreateTreeShareDto, UpdateTreeShareDto } from './dto/share-tree.dto';
 import { mapTreeToResponse } from '../persons/helpers/person.mapper';
 import { ShareEmailService } from './share-email.service';
 import { v4 as uuidv4 } from 'uuid';
+import { Gender } from '../../types/common.types';
 
 export interface AccessibleTree {
   tree: Tree;
@@ -25,6 +27,8 @@ export class TreeService {
     private readonly treeShareRepo: Repository<TreeShare>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Person)
+    private readonly personRepo: Repository<Person>,
     private readonly shareEmailService: ShareEmailService,
   ) {}
 
@@ -51,8 +55,14 @@ export class TreeService {
       sharedTreeMap = new Map(sharedTrees.map((t) => [t.id, t]));
     }
 
+    const countByTreeId = await this.getPersonCountsByTreeId([
+      ...ownedTrees.map((tree) => tree.id),
+      ...sharedTreeIds,
+    ]);
+
     const ownedResults = ownedTrees.map((tree) => ({
       ...mapTreeToResponse(tree),
+      counts: countByTreeId.get(tree.id) ?? this.emptyPersonCounts(),
       role: 'OWNER' as const,
     }));
 
@@ -62,6 +72,7 @@ export class TreeService {
         if (!tree) return null;
         return {
           ...mapTreeToResponse(tree),
+          counts: countByTreeId.get(tree.id) ?? this.emptyPersonCounts(),
           role: share.permission as 'VIEW' | 'EDIT',
           sharedByEmail: share.sharedByUser?.email,
         };
@@ -69,6 +80,53 @@ export class TreeService {
       .filter(Boolean);
 
     return [...ownedResults, ...sharedResults];
+  }
+
+  private async getPersonCountsByTreeId(treeIds: string[]) {
+    const uniqueTreeIds = Array.from(new Set(treeIds));
+    const countByTreeId = new Map<
+      string,
+      { men: number; women: number; total: number }
+    >();
+
+    if (uniqueTreeIds.length === 0) return countByTreeId;
+
+    const rows = await this.personRepo
+      .createQueryBuilder('person')
+      .select('person.treeId', 'treeId')
+      .addSelect(
+        `SUM(CASE WHEN person.gender = :male THEN 1 ELSE 0 END)`,
+        'men',
+      )
+      .addSelect(
+        `SUM(CASE WHEN person.gender = :female THEN 1 ELSE 0 END)`,
+        'women',
+      )
+      .addSelect('COUNT(person.id)', 'total')
+      .where('person.treeId IN (:...treeIds)', { treeIds: uniqueTreeIds })
+      .andWhere('person.deletedAt IS NULL')
+      .groupBy('person.treeId')
+      .setParameters({ male: Gender.MALE, female: Gender.FEMALE })
+      .getRawMany<{
+        treeId: string;
+        men: string;
+        women: string;
+        total: string;
+      }>();
+
+    for (const row of rows) {
+      countByTreeId.set(row.treeId, {
+        men: Number(row.men) || 0,
+        women: Number(row.women) || 0,
+        total: Number(row.total) || 0,
+      });
+    }
+
+    return countByTreeId;
+  }
+
+  private emptyPersonCounts() {
+    return { men: 0, women: 0, total: 0 };
   }
 
   async findOne(treeId: string, userId: string) {

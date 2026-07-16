@@ -57,13 +57,11 @@ function TreeCard({
   deletePending?: boolean;
 }) {
   const isOwner = !tree.role || tree.role === "OWNER";
-
-  console.log(tree, "tree");
-  console.log(isOwner, "isOwner");
+  const counts = tree.counts ?? { men: 0, women: 0, total: 0 };
 
   return (
     <Card hover padding="md" className="group flex flex-col">
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition-colors group-hover:bg-brand-100">
           <TreePine className="h-5 w-5" aria-hidden="true" />
         </div>
@@ -84,6 +82,20 @@ function TreeCard({
               Shared by {tree.sharedByEmail}
             </p>
           )}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary">
+            {[
+              { label: "Men", value: counts.men },
+              { label: "Women", value: counts.women },
+              { label: "Total", value: counts.total },
+            ].map((item) => (
+              <span
+                key={item.label}
+                className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
+              >
+                {item.label}: {item.value}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
       <div className="mt-5 flex gap-2">

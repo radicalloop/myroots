@@ -35,6 +35,11 @@ export interface TreeResponse {
   user_id: string;
   name: string;
   description: string | null;
+  counts?: {
+    men: number;
+    women: number;
+    total: number;
+  };
   role?: 'OWNER' | 'VIEW' | 'EDIT';
   created_at: Date;
   updated_at: Date;

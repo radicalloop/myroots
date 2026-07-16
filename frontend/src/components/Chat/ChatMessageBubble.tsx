@@ -39,11 +39,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           />
         )}
         {content && (
-          isUser ? (
-            <p className="break-words">{content}</p>
-          ) : (
-            <MarkdownMessage content={content} />
-          )
+          <MarkdownMessage content={content} inverted={isUser} />
         )}
       </div>
     </div>
@@ -54,9 +50,16 @@ type MarkdownBlock =
   | { type: "heading"; level: 1 | 2 | 3; text: string }
   | { type: "paragraph"; text: string }
   | { type: "ordered-list"; items: string[] }
-  | { type: "unordered-list"; items: string[] };
+  | { type: "unordered-list"; items: string[] }
+  | { type: "code"; language?: string; text: string };
 
-function MarkdownMessage({ content }: { content: string }) {
+function MarkdownMessage({
+  content,
+  inverted = false,
+}: {
+  content: string;
+  inverted?: boolean;
+}) {
   const blocks = parseMarkdownBlocks(content);
 
   return (
@@ -64,7 +67,8 @@ function MarkdownMessage({ content }: { content: string }) {
       {blocks.map((block, index) => {
         if (block.type === "heading") {
           const className = clsx(
-            "font-semibold leading-snug text-text-primary",
+            "font-semibold leading-snug",
+            inverted ? "text-white" : "text-text-primary",
             block.level === 1 && "text-base",
             block.level === 2 && "text-[15px]",
             block.level === 3 && "text-sm",
@@ -72,8 +76,24 @@ function MarkdownMessage({ content }: { content: string }) {
 
           return (
             <p key={index} className={className}>
-              {renderInlineMarkdown(block.text)}
+              {renderInlineMarkdown(block.text, inverted)}
             </p>
+          );
+        }
+
+        if (block.type === "code") {
+          return (
+            <pre
+              key={index}
+              className={clsx(
+                "max-w-full overflow-x-auto whitespace-pre-wrap break-words rounded-xl border px-3 py-2 text-xs leading-relaxed",
+                inverted
+                  ? "border-white/15 bg-black/10 text-white"
+                  : "border-border-subtle bg-warm-50 text-text-primary",
+              )}
+            >
+              <code>{block.text}</code>
+            </pre>
           );
         }
 
@@ -81,11 +101,14 @@ function MarkdownMessage({ content }: { content: string }) {
           return (
             <ol
               key={index}
-              className="ml-4 list-decimal space-y-1 marker:text-text-muted"
+              className={clsx(
+                "ml-4 list-decimal space-y-1",
+                inverted ? "marker:text-white/75" : "marker:text-text-muted",
+              )}
             >
               {block.items.map((item, itemIndex) => (
                 <li key={itemIndex} className="pl-1">
-                  {renderInlineMarkdown(item)}
+                  {renderInlineMarkdown(item, inverted)}
                 </li>
               ))}
             </ol>
@@ -96,11 +119,14 @@ function MarkdownMessage({ content }: { content: string }) {
           return (
             <ul
               key={index}
-              className="ml-4 list-disc space-y-1 marker:text-text-muted"
+              className={clsx(
+                "ml-4 list-disc space-y-1",
+                inverted ? "marker:text-white/75" : "marker:text-text-muted",
+              )}
             >
               {block.items.map((item, itemIndex) => (
                 <li key={itemIndex} className="pl-1">
-                  {renderInlineMarkdown(item)}
+                  {renderInlineMarkdown(item, inverted)}
                 </li>
               ))}
             </ul>
@@ -109,7 +135,7 @@ function MarkdownMessage({ content }: { content: string }) {
 
         return (
           <p key={index} className="whitespace-pre-wrap">
-            {renderInlineMarkdown(block.text)}
+            {renderInlineMarkdown(block.text, inverted)}
           </p>
         );
       })}
@@ -118,11 +144,17 @@ function MarkdownMessage({ content }: { content: string }) {
 }
 
 function parseMarkdownBlocks(content: string): MarkdownBlock[] {
+  if (looksLikeRawCode(content)) {
+    return [{ type: "code", text: content.trim() }];
+  }
+
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const blocks: MarkdownBlock[] = [];
   let paragraph: string[] = [];
   let orderedItems: string[] = [];
   let unorderedItems: string[] = [];
+  let codeLines: string[] = [];
+  let codeLanguage: string | undefined;
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
@@ -147,8 +179,36 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
     flushUnorderedList();
   };
 
+  const flushCode = () => {
+    if (codeLines.length === 0 && codeLanguage === undefined) return;
+    blocks.push({
+      type: "code",
+      language: codeLanguage,
+      text: codeLines.join("\n"),
+    });
+    codeLines = [];
+    codeLanguage = undefined;
+  };
+
   for (const line of lines) {
     const trimmed = line.trim();
+
+    const fenceMatch = trimmed.match(/^```(\w+)?\s*$/);
+    if (fenceMatch) {
+      if (codeLanguage !== undefined || codeLines.length > 0) {
+        flushCode();
+      } else {
+        flushParagraph();
+        flushLists();
+        codeLanguage = fenceMatch[1] ?? "";
+      }
+      continue;
+    }
+
+    if (codeLanguage !== undefined) {
+      codeLines.push(line);
+      continue;
+    }
 
     if (!trimmed) {
       flushParagraph();
@@ -190,11 +250,22 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 
   flushParagraph();
   flushLists();
+  flushCode();
 
   return blocks.length > 0 ? blocks : [{ type: "paragraph", text: content }];
 }
 
-function renderInlineMarkdown(text: string): ReactNode[] {
+function looksLikeRawCode(content: string): boolean {
+  const trimmed = content.trim();
+
+  return (
+    ((trimmed.startsWith("{") && trimmed.includes('":')) ||
+      (trimmed.startsWith("[") && trimmed.includes('":'))) &&
+    trimmed.length > 80
+  );
+}
+
+function renderInlineMarkdown(text: string, inverted: boolean): ReactNode[] {
   const parts: ReactNode[] = [];
   const pattern = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
@@ -212,14 +283,22 @@ function renderInlineMarkdown(text: string): ReactNode[] {
       parts.push(
         <code
           key={key}
-          className="rounded bg-warm-100 px-1 py-0.5 text-[0.92em] text-text-primary"
+          className={clsx(
+            "rounded px-1 py-0.5 text-[0.92em]",
+            inverted
+              ? "bg-white/15 text-white"
+              : "bg-warm-100 text-text-primary",
+          )}
         >
           {token.slice(1, -1)}
         </code>,
       );
     } else if (token.startsWith("**")) {
       parts.push(
-        <strong key={key} className="font-semibold text-text-primary">
+        <strong
+          key={key}
+          className={clsx("font-semibold", inverted ? "text-white" : "text-text-primary")}
+        >
           {token.slice(2, -2)}
         </strong>,
       );

@@ -113,11 +113,13 @@ export function PublicTreePage() {
         <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           <TreePageToolbar
             treeName={treeView.tree.name}
+            treeDescription={treeView.tree.description}
             root={treeView.root}
             isDownloadingPdf={isDownloadingPdf}
             canEdit={false}
             isSavingTreeName={false}
             onSaveTreeName={() => {}}
+            onSaveTreeDescription={() => {}}
             onDownloadPdf={handleDownloadPdf}
             onAddRoot={() => {}}
             onSearchSelect={handleSearchSelect}

@@ -1,6 +1,7 @@
 import { Download, MoveLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PersonSearch } from "@/components/TreeView/PersonSearch";
+import { TreeDescriptionEditor } from "@/components/TreeView/TreeDescriptionEditor";
 import { TreeTitleEditor } from "@/components/TreeView/TreeTitleEditor";
 import { Button } from "@/components/ui/Button";
 import { TreePersonNode } from "@/types/api.types";
@@ -9,11 +10,13 @@ import { cn } from "@/lib/utils";
 
 interface TreePageToolbarProps {
   treeName: string;
+  treeDescription: string | null;
   root: TreePersonNode | null;
   isDownloadingPdf: boolean;
   canEdit: boolean;
   isSavingTreeName?: boolean;
   onSaveTreeName: (name: string) => void;
+  onSaveTreeDescription: (description: string) => void;
   onDownloadPdf: () => void;
   onAddRoot: () => void;
   onSearchSelect: (person: TreePersonNode) => void;
@@ -23,11 +26,13 @@ interface TreePageToolbarProps {
 
 export function TreePageToolbar({
   treeName,
+  treeDescription,
   root,
   isDownloadingPdf,
   canEdit,
   isSavingTreeName = false,
   onSaveTreeName,
+  onSaveTreeDescription,
   onDownloadPdf,
   onAddRoot,
   onSearchSelect,
@@ -70,11 +75,23 @@ export function TreePageToolbar({
               onSave={onSaveTreeName}
               isSaving={isSavingTreeName}
             />
+            <TreeDescriptionEditor
+              description={treeDescription}
+              onSave={onSaveTreeDescription}
+              isSaving={isSavingTreeName}
+            />
           </>
         ) : (
-          <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
-            {treeName}
-          </h1>
+          <>
+            <h1 className="text-xl font-semibold text-text-primary sm:text-2xl">
+              {treeName}
+            </h1>
+            {treeDescription?.trim() ? (
+              <p className="mt-0.5 max-w-md truncate text-xs leading-snug text-text-secondary">
+                {treeDescription.trim()}
+              </p>
+            ) : null}
+          </>
         )}
       </div>
 

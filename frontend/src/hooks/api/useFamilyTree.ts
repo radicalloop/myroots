@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -7,6 +12,7 @@ import {
   getMe,
   updateMe,
   getTrees,
+  getTree,
   createTree,
   updateTree,
   deleteTree,
@@ -35,10 +41,44 @@ import {
   AddSpousePayload,
   UpdatePersonPayload,
   Person,
+  Tree,
   TreeView,
 } from '@/types/api.types';
 import { updatePersonInTree, personToTreeUpdates } from '@/utils/tree.utils';
 import { revokePersonImageQueries } from '@/hooks/api/usePersonImageUrl';
+
+async function resolveTreeViewDescription(
+  treeView: TreeView,
+  treeId: string,
+  queryClient: QueryClient,
+): Promise<TreeView> {
+  if (treeView.tree.description !== undefined) {
+    return treeView;
+  }
+
+  const cachedTrees = queryClient.getQueryData<Tree[]>(QUERY_KEYS.TREES);
+  const cachedTree = cachedTrees?.find((tree) => tree.id === treeId);
+
+  if (cachedTree) {
+    return {
+      ...treeView,
+      tree: { ...treeView.tree, description: cachedTree.description },
+    };
+  }
+
+  try {
+    const treeRes = await getTree(treeId);
+    return {
+      ...treeView,
+      tree: { ...treeView.tree, description: treeRes.data.data.description },
+    };
+  } catch {
+    return {
+      ...treeView,
+      tree: { ...treeView.tree, description: null },
+    };
+  }
+}
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -172,6 +212,7 @@ export function useUpdateTree() {
             tree: {
               ...current.tree,
               name: res.data.data.name,
+              description: res.data.data.description,
             },
           };
         },
@@ -197,11 +238,30 @@ export function useDeleteTree() {
 }
 
 export function useTreeView(treeId: string, options?: { enabled?: boolean }) {
+  const queryClient = useQueryClient();
+
   return useQuery({
     queryKey: QUERY_KEYS.TREE_VIEW(treeId),
     queryFn: async () => {
       const res = await getTreeView(treeId);
-      return res.data.data;
+      return resolveTreeViewDescription(res.data.data, treeId, queryClient);
+    },
+    select: (treeView) => {
+      if (treeView.tree.description !== undefined) {
+        return treeView;
+      }
+
+      const cachedTrees = queryClient.getQueryData<Tree[]>(QUERY_KEYS.TREES);
+      const cachedTree = cachedTrees?.find((tree) => tree.id === treeId);
+
+      if (!cachedTree) {
+        return treeView;
+      }
+
+      return {
+        ...treeView,
+        tree: { ...treeView.tree, description: cachedTree.description },
+      };
     },
     enabled: options?.enabled ?? Boolean(treeId),
   });

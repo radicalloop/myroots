@@ -19,6 +19,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
+import { MemberStatsBar } from "@/components/MemberStatsBar";
 import { Gender, TreePersonNode } from "@/types/api.types";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
 import { useTreePublicContext } from "@/contexts/TreePublicContext";
@@ -72,28 +73,14 @@ function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
   if (counts.total === 0) return null;
   const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
 
-  const items = [
-    { label: "Men", value: counts.men },
-    { label: "Women", value: counts.women },
-    { label: "Total", value: counts.total },
-  ];
-
   return (
-    <div
+    <MemberStatsBar
+      counts={counts}
       className={clsx(
-        "absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary",
+        "absolute top-[74px] left-4 z-10 md:top-4",
         isPublicTree && "!top-4",
       )}
-    >
-      {items.map((item) => (
-        <span
-          key={item.label}
-          className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
-        >
-          {item.label}: {item.value}
-        </span>
-      ))}
-    </div>
+    />
   );
 }
 

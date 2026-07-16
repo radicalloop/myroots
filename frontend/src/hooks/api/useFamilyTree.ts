@@ -56,7 +56,7 @@ function fileToDataUrl(file: File): Promise<string> {
   });
 }
 
-export function useMe() {
+export function useMe(options?: { enabled?: boolean }) {
   const { setUser, isAuthenticated } = useAuth();
 
   return useQuery({
@@ -66,7 +66,7 @@ export function useMe() {
       setUser(res.data.data);
       return res.data.data;
     },
-    enabled: isAuthenticated,
+    enabled: (options?.enabled ?? true) && isAuthenticated,
     retry: false,
   });
 }

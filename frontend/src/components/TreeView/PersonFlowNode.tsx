@@ -23,23 +23,26 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
 
   return (
     <div
-      data-tree-node-card
       style={{ width: PEDIGREE_NODE_WIDTH, height: PEDIGREE_NODE_HEIGHT }}
-      className={clsx(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-[28px] border px-7 pb-7 pt-8 text-center transition-all duration-200",
-        "shadow-[0_1px_2px_rgba(31,41,35,0.04),0_20px_45px_rgba(31,41,35,0.08)]",
-        "hover:-translate-y-0.5 hover:shadow-[0_24px_52px_rgba(31,41,35,0.12)]",
-        theme.card,
-        highlighted ? theme.cardHighlighted : theme.cardHoverBorder,
-        assistantHighlighted && "pt-10",
-      )}
+      className="relative"
     >
       {assistantHighlighted && (
-        <div className="absolute left-1/2 top-0 z-10 flex h-5 -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-brand-600 px-3 text-[10px] font-extrabold uppercase leading-none tracking-normal text-white shadow-[0_5px_12px_rgba(5,150,105,0.22)]">
+        <div className="pointer-events-none absolute left-1/2 top-0 z-20 flex h-6 -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-brand-600 px-3 text-[10px] font-extrabold uppercase leading-none tracking-normal text-white shadow-[0_5px_12px_rgba(5,150,105,0.22)]">
           FROM ASSISTANT
         </div>
       )}
 
+      <div
+        data-tree-node-card
+        className={clsx(
+          "group relative flex h-full cursor-pointer flex-col overflow-hidden rounded-[28px] border px-7 pb-7 pt-8 text-center transition-all duration-200",
+          "shadow-[0_1px_2px_rgba(31,41,35,0.04),0_20px_45px_rgba(31,41,35,0.08)]",
+          "hover:-translate-y-0.5 hover:shadow-[0_24px_52px_rgba(31,41,35,0.12)]",
+          theme.card,
+          highlighted ? theme.cardHighlighted : theme.cardHoverBorder,
+          assistantHighlighted && "pt-10",
+        )}
+      >
       {theme.showDecorations && <PersonCardFemaleDecorations />}
 
       <Handle
@@ -118,6 +121,7 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
         position={Position.Bottom}
         className="!-bottom-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#c4ccc0] !opacity-100"
       />
+      </div>
     </div>
   );
 }

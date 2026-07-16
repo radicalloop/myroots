@@ -143,7 +143,10 @@ function FieldInput({
           onCancel();
         }
       }}
-      className="mt-1.5 w-full rounded-md border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60"
+      className={clsx(
+        "mt-1.5 w-full rounded-md border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60",
+        type === "date" && "input-date-sm",
+      )}
     />
   );
 }

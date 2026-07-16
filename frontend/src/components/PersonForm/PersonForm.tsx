@@ -8,7 +8,11 @@ import { Gender, Person, TreePersonNode } from "@/types/api.types";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import clsx from "clsx";
-import { todayInputDate } from "@/utils/person.utils";
+import {
+  getFutureDateError,
+  isFutureDate,
+  todayInputDate,
+} from "@/utils/person.utils";
 import { CalendarDays, ChevronDown, HeartPulse, UserRound } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
@@ -66,6 +70,7 @@ export function PersonForm({
     formState: { errors },
   } = useForm<PersonFormValues>({
     resolver: zodResolver(personSchema),
+    mode: "onTouched",
     defaultValues: {
       first_name: "",
       last_name: "",
@@ -77,6 +82,15 @@ export function PersonForm({
       health_note: "",
       ...defaultValues,
     },
+  });
+
+  const birthDateField = register("birth_date", {
+    validate: (value) =>
+      !value?.trim() || !isFutureDate(value) || getFutureDateError("birth_date"),
+  });
+  const deathDateField = register("death_date", {
+    validate: (value) =>
+      !value?.trim() || !isFutureDate(value) || getFutureDateError("death_date"),
   });
 
   return (
@@ -133,15 +147,15 @@ export function PersonForm({
             <Input
               label="Birth date"
               type="date"
+              {...birthDateField}
               max={todayInputDate()}
-              {...register("birth_date")}
               error={errors.birth_date?.message}
             />
             <Input
               label="Death date"
               type="date"
+              {...deathDateField}
               max={todayInputDate()}
-              {...register("death_date")}
               error={errors.death_date?.message}
             />
           </div>

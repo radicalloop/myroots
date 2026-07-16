@@ -21,6 +21,7 @@ import {
   buildSpouseMap,
   buildSpouseNode,
   findRootPerson,
+  mapTreeToViewSummary,
   TreeViewResponse,
   PersonResponse,
   TreePersonNode,
@@ -403,7 +404,7 @@ export class PersonService {
       : null;
 
     return {
-      tree: { id: tree.id, name: tree.name, role: permission },
+      tree: mapTreeToViewSummary(tree, permission),
       root,
     };
   }
@@ -694,7 +695,7 @@ export class PersonService {
       : null;
 
     return {
-      tree: { id: tree.id, name: tree.name, role: 'VIEW' as const },
+      tree: mapTreeToViewSummary(tree, 'VIEW'),
       root,
     };
   }

@@ -76,6 +76,20 @@ interface PendingMissingLastNameUpdate {
   originalAiReply: string;
 }
 
+type RelationshipKey =
+  | "wife"
+  | "husband"
+  | "spouse"
+  | "son"
+  | "daughter"
+  | "children"
+  | "brother"
+  | "sister"
+  | "siblings"
+  | "father"
+  | "mother"
+  | "parents";
+
 @Injectable()
 export class ChatService {
   private readonly logger = new Logger(ChatService.name);
@@ -224,6 +238,15 @@ export class ChatService {
     );
     if (relationshipLookup) {
       return relationshipLookup;
+    }
+
+    const namedRelationshipLookup = this.handleNamedRelationshipLookup(
+      persons,
+      spouseRows,
+      dto.message,
+    );
+    if (namedRelationshipLookup) {
+      return namedRelationshipLookup;
     }
 
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
@@ -1172,36 +1195,9 @@ export class ChatService {
     );
   }
 
-  private extractCurrentUserRelationships(
-    message: string,
-  ): Array<
-    | "wife"
-    | "husband"
-    | "spouse"
-    | "son"
-    | "daughter"
-    | "children"
-    | "brother"
-    | "sister"
-    | "siblings"
-    | "father"
-    | "mother"
-    | "parents"
-  > {
+  private extractCurrentUserRelationships(message: string): RelationshipKey[] {
     const patterns: Array<{
-      relationship:
-        | "wife"
-        | "husband"
-        | "spouse"
-        | "son"
-        | "daughter"
-        | "children"
-        | "brother"
-        | "sister"
-        | "siblings"
-        | "father"
-        | "mother"
-        | "parents";
+      relationship: RelationshipKey;
       pattern: RegExp;
     }> = [
       { relationship: "wife", pattern: /\bmy\s+wife(?:'s)?\b/i },
@@ -1224,6 +1220,109 @@ export class ChatService {
     return patterns
       .filter(({ pattern }) => pattern.test(message))
       .map(({ relationship }) => relationship);
+  }
+
+  private handleNamedRelationshipLookup(
+    persons: Person[],
+    spouseRows: PersonSpouse[],
+    message: string,
+  ): ChatResult | null {
+    if (this.isCurrentUserRelationshipActionRequest(message)) return null;
+
+    const relationshipQuestion = this.extractNamedRelationshipQuestion(message);
+    if (!relationshipQuestion) return null;
+
+    const resolved = resolvePersonByName(persons, relationshipQuestion.name);
+
+    if (resolved.kind === "ambiguous") {
+      const options = resolved.matches.map((person) => {
+        const gender = person.gender
+          ? ` (${person.gender.toLowerCase()})`
+          : "";
+        return `${formatPersonName(person)}${gender}`;
+      });
+
+      return {
+        reply: `I found multiple people matching "${relationshipQuestion.name}" in this tree. Please be more specific: ${options.join(", ")}.`,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    if (resolved.kind !== "found") {
+      return {
+        reply: `I couldn't find anyone named "${relationshipQuestion.name}" in this tree.`,
+        action: "NONE",
+        person: null,
+        focus_person: null,
+        results: [],
+      };
+    }
+
+    const relatedPeople = this.getRelatedPeople(
+      resolved.person,
+      relationshipQuestion.relationship,
+      persons,
+      spouseRows,
+    );
+
+    return {
+      reply: this.buildNamedRelationshipReply(
+        resolved.person,
+        relationshipQuestion.relationship,
+        relatedPeople,
+      ),
+      action: "NONE",
+      person: null,
+      focus_person:
+        relatedPeople.length === 1 ? mapPersonToResponse(relatedPeople[0]) : null,
+      results: [],
+    };
+  }
+
+  private extractNamedRelationshipQuestion(
+    message: string,
+  ): { name: string; relationship: RelationshipKey } | null {
+    const normalized = this.normalizeChatQuestion(message);
+    const possessiveMatch = normalized.match(
+      /^(?:who\s+(?:is|are)|what\s+(?:is|are)|tell\s+me\s+about|show\s+me|find)\s+(.+?)(?:['’]s)?\s+(wife|husband|spouse|children|child|kids?|sons?|daughters?|father|dad|mother|mom|parents?|siblings?|brothers?|sisters?)$/i,
+    );
+    const ofMatch = normalized.match(
+      /^(?:who\s+(?:is|are)|what\s+(?:is|are)|tell\s+me\s+about|show\s+me|find)\s+(?:the\s+)?(wife|husband|spouse|children|child|kids?|sons?|daughters?|father|dad|mother|mom|parents?|siblings?|brothers?|sisters?)\s+of\s+(.+)$/i,
+    );
+
+    const name = (possessiveMatch?.[1] ?? ofMatch?.[2] ?? "")
+      .trim()
+      .replace(/^person\s+/i, "")
+      .trim();
+    const relationship = this.normalizeRelationshipWord(
+      possessiveMatch?.[2] ?? ofMatch?.[1] ?? "",
+    );
+
+    if (!name || name.length > 80 || !relationship) return null;
+
+    return { name, relationship };
+  }
+
+  private normalizeRelationshipWord(word: string): RelationshipKey | null {
+    const normalized = word.toLowerCase();
+
+    if (normalized === "wife") return "wife";
+    if (normalized === "husband") return "husband";
+    if (normalized === "spouse") return "spouse";
+    if (/^sons?$/.test(normalized)) return "son";
+    if (/^daughters?$/.test(normalized)) return "daughter";
+    if (/^(children|child|kids?)$/.test(normalized)) return "children";
+    if (/^(father|dad)$/.test(normalized)) return "father";
+    if (/^(mother|mom)$/.test(normalized)) return "mother";
+    if (/^parents?$/.test(normalized)) return "parents";
+    if (/^brothers?$/.test(normalized)) return "brother";
+    if (/^sisters?$/.test(normalized)) return "sister";
+    if (/^siblings?$/.test(normalized)) return "siblings";
+
+    return null;
   }
 
   private resolveCurrentUserPerson(
@@ -1337,6 +1436,29 @@ export class ChatService {
     return `Your ${label} are ${this.joinNames(names)}.`;
   }
 
+  private buildNamedRelationshipReply(
+    person: Person,
+    relationship: RelationshipKey,
+    relatedPeople: Person[],
+  ): string {
+    const personName = formatPersonName(person);
+    const label = this.relationshipLabel(relationship, relatedPeople.length);
+
+    if (relatedPeople.length === 0) {
+      return `I couldn't find a recorded ${label} for ${personName} in this tree.`;
+    }
+
+    const names = relatedPeople.map((relatedPerson) =>
+      formatPersonName(relatedPerson),
+    );
+
+    if (relatedPeople.length === 1) {
+      return `${personName}'s ${label} is ${names[0]}.`;
+    }
+
+    return `${personName}'s ${label} are ${this.joinNames(names)}.`;
+  }
+
   private relationshipLabel(relationship: string, count: number): string {
     const labels: Record<string, { singular: string; plural: string }> = {
       wife: { singular: "wife", plural: "wives" },
@@ -1417,7 +1539,9 @@ export class ChatService {
   }
 
   private extractDirectPersonLookupName(message: string): string | null {
-    const trimmed = message.trim().replace(/[?.!]+$/g, "").trim();
+    const trimmed = this.normalizeChatQuestion(message);
+    if (this.extractNamedRelationshipQuestion(trimmed)) return null;
+
     const match = trimmed.match(
       /^(?:who\s+is|tell\s+me\s+about|describe|find|show\s+me)\s+(.+)$/i,
     );
@@ -1441,6 +1565,14 @@ export class ChatService {
     }
 
     return name;
+  }
+
+  private normalizeChatQuestion(message: string): string {
+    return message
+      .trim()
+      .replace(/\s*--snapshot-[\w-]+\s*$/i, "")
+      .replace(/[?.!]+$/g, "")
+      .trim();
   }
 
   private buildPersonLookupReply(person: Person, persons: Person[]): string {
@@ -1749,6 +1881,15 @@ export class ChatService {
       where: { treeId, deletedAt: IsNull() },
       order: { createdAt: "ASC" },
     });
+
+    const namedRelationshipLookup = this.handleNamedRelationshipLookup(
+      persons,
+      spouseRows,
+      dto.message,
+    );
+    if (namedRelationshipLookup) {
+      return { reply: namedRelationshipLookup.reply };
+    }
 
     const directLookup = this.handleDirectPersonLookup(persons, dto.message);
     if (directLookup) {

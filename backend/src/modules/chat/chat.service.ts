@@ -246,12 +246,6 @@ export class ChatService {
       pendingBulk = undefined;
     }
 
-    // Clear stale pending image when user sends a non-image query
-    if (!hasIncomingImage && this.pendingImages.has(cacheKey)) {
-      this.logger.log(`Clearing stale pending image for new non-image query`);
-      this.pendingImages.delete(cacheKey);
-    }
-
     if (pendingBulk) {
       const trimmedMsg = dto.message.trim();
 
@@ -289,6 +283,27 @@ export class ChatService {
         focus_person: null,
         results: [],
       };
+    }
+
+    const pendingImageFollowUp = await this.handlePendingProfileImageFollowUp(
+      persons,
+      treeId,
+      userId,
+      cacheKey,
+      dto.message,
+      hasIncomingImage,
+    );
+    if (pendingImageFollowUp) {
+      return pendingImageFollowUp;
+    }
+
+    if (
+      !hasIncomingImage &&
+      this.pendingImages.has(cacheKey) &&
+      this.isIndependentQuery(dto.message)
+    ) {
+      this.logger.log(`Clearing stale pending image for new independent query`);
+      this.pendingImages.delete(cacheKey);
     }
 
     const imageUrl = dto.image
@@ -461,6 +476,83 @@ export class ChatService {
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────
+
+  private async handlePendingProfileImageFollowUp(
+    persons: Person[],
+    treeId: string,
+    userId: string,
+    cacheKey: string,
+    message: string,
+    hasIncomingImage: boolean,
+  ): Promise<ChatResult | null> {
+    if (hasIncomingImage) return null;
+
+    const pendingImage = this.pendingImages.get(cacheKey);
+    if (!pendingImage) return null;
+
+    const targetName = this.extractPendingImageTargetName(message);
+    if (!targetName) return null;
+
+    const results = await applyProfileImageUpdates(
+      this.personService,
+      persons,
+      treeId,
+      userId,
+      pendingImage,
+      [{ targetName }],
+    );
+    const action = summarizeChatAction(results);
+    const affectedPerson = getLastAffectedPerson(results);
+
+    if (results.some((result) => result.success)) {
+      this.pendingImages.delete(cacheKey);
+    }
+
+    return {
+      reply: buildResultReply(
+        `Set ${targetName}'s profile photo.`,
+        results,
+      ),
+      action: action === "NONE" ? "NONE" : action,
+      person: affectedPerson,
+      focus_person: affectedPerson,
+      results,
+    };
+  }
+
+  private extractPendingImageTargetName(message: string): string | null {
+    const trimmed = message
+      .trim()
+      .replace(/\*\*/g, "")
+      .replace(/[.!?]+$/g, "")
+      .trim();
+
+    if (!trimmed || trimmed.length > 100) return null;
+
+    const patterns = [
+      /^(?:set|use|apply)\s+(?:it|this|photo|image|picture)?\s*(?:as\s+)?(?:profile\s+)?(?:photo|image|picture)?\s*(?:for|to|on)\s+(.+)$/i,
+      /^(?:this|it)\s+is\s+(.+)$/i,
+      /^(?:for|to|on)\s+(.+)$/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = trimmed.match(pattern);
+      const value = match?.[1]?.trim();
+      if (value) return value;
+    }
+
+    if (
+      /^(who|what|where|when|why|how|which|tell|show|list|explain|describe|find|add|edit|delete|remove|clear)\b/i.test(
+        trimmed,
+      )
+    ) {
+      return null;
+    }
+
+    if (!/[A-Za-z]/.test(trimmed)) return null;
+
+    return trimmed;
+  }
 
   private validateChatImage(dto: ChatMessageDto): void {
     if (!dto.image) return;

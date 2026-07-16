@@ -65,6 +65,7 @@ export function ProfilePage() {
               type="text"
               autoComplete="given-name"
               {...register("firstName")}
+              required
               error={errors.firstName?.message}
             />
             <Input
@@ -72,6 +73,7 @@ export function ProfilePage() {
               type="text"
               autoComplete="family-name"
               {...register("lastName")}
+              required
               error={errors.lastName?.message}
             />
           </div>
@@ -81,7 +83,7 @@ export function ProfilePage() {
             type="email"
             value={user?.email ?? ""}
             disabled
-            readOnly
+            hint="Your account email cannot be changed here."
           />
 
           <div className="flex justify-end">

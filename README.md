@@ -11,9 +11,11 @@ A full-stack family tree web application for building, visualizing, and sharing 
 - [Local Development Setup](#local-development-setup)
   - [Backend](#backend)
   - [Frontend](#frontend)
+  - [Mobile App](#mobile-app)
 - [Environment Variables](#environment-variables)
   - [Backend](#backend-environment-variables)
   - [Frontend](#frontend-environment-variables)
+  - [Mobile App](#mobile-app-environment-variables)
 - [Available Scripts](#available-scripts)
 - [Project Structure](#project-structure)
 - [API Overview](#api-overview)
@@ -21,7 +23,7 @@ A full-stack family tree web application for building, visualizing, and sharing 
 
 ## Features
 
-- **Tree visualization** — interactive hierarchical tree layout using React Flow and Dagre
+- **Tree visualization** — interactive hierarchical web tree layout using React Flow and Dagre, plus native mobile tree browsing in Expo
 - **Person management** — add, edit, and delete family members with parent-child and spouse relationships
 - **Image uploads** — profile photos stored via AWS S3 signed URLs
 - **AI Chat assistant** — DeepSeek or OpenAI-powered assistant that answers questions about your tree and can add/edit people
@@ -34,6 +36,7 @@ A full-stack family tree web application for building, visualizing, and sharing 
 |---------|------------------------------------------------------|
 | Backend | NestJS 10, TypeORM 0.3, PostgreSQL 16                |
 | Frontend| React 19, Vite 6, TailwindCSS 4, React Flow, Dagre   |
+| Mobile  | Expo, React Native, TypeScript, Expo Router          |
 | Auth    | JWT (access + refresh tokens, passport-jwt)           |
 | Storage | AWS S3 (signed URLs)                                  |
 | AI      | DeepSeek v4-pro or OpenAI GPT-4o-mini (optional)      |
@@ -45,6 +48,7 @@ A full-stack family tree web application for building, visualizing, and sharing 
 - **PostgreSQL 16+** (local install or Docker)
 - **Yarn 1.x** (for backend — use `corepack enable`)
 - **npm** (for frontend — ships with Node.js)
+- **Expo tooling** (for mobile — installed through the `app` package)
 - **Docker & Docker Compose** (optional, for containerized setup)
 
 ## Quick Start (Docker)
@@ -127,6 +131,39 @@ npm run dev
 
 The frontend runs at **http://localhost:5173**.
 
+### Mobile App
+
+```bash
+cd app
+
+# Use Node 24 from the repository .nvmrc
+nvm use   # or: fnm use
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit EXPO_PUBLIC_API_URL for your machine/emulator
+
+# Start Expo
+npm start
+```
+
+Run on specific targets:
+
+```bash
+npm run android   # Android emulator or device
+npm run ios       # iOS simulator or device
+npm run dev       # Development build client
+```
+
+For Android emulators with a local backend, set:
+
+```bash
+EXPO_PUBLIC_API_URL=http://10.0.2.2:3001/api
+```
+
 ## Environment Variables
 
 ### Backend Environment Variables
@@ -173,6 +210,16 @@ Copy `frontend/.env.example` to `frontend/.env`.
 |-----------------------|----------|----------------------------------|-----------------------|
 | `VITE_API_BASE_URL`   | Yes      | `http://localhost:3001/api`      | Backend API base URL  |
 
+### Mobile App Environment Variables
+
+Copy `app/.env.example` to `app/.env`.
+
+| Variable                    | Required | Default                     | Description                  |
+|-----------------------------|----------|-----------------------------|------------------------------|
+| `EXPO_PUBLIC_APP_ENV`       | No       | `development`               | App environment label        |
+| `EXPO_PUBLIC_API_URL`       | Yes      | `http://localhost:3000`     | Backend API base URL         |
+| `EXPO_PUBLIC_PUBLIC_WEB_URL`| Yes      | `http://localhost:5173`     | Web URL used for public tree links |
+
 ## Available Scripts
 
 ### Backend (`yarn`)
@@ -200,6 +247,18 @@ node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 | `npm run build`    | Build for production              |
 | `npm run preview`  | Preview production build locally  |
 | `npm run lint`     | Run ESLint                        |
+
+### Mobile App (`npm`)
+
+| Command                 | Description                              |
+|-------------------------|------------------------------------------|
+| `npm start`             | Start Expo for Expo Go                   |
+| `npm run android`       | Start Expo on Android emulator/device    |
+| `npm run ios`           | Start Expo on iOS simulator/device       |
+| `npm run dev`           | Start Expo development build client      |
+| `npm run typecheck`     | Run TypeScript validation                |
+| `npm run lint`          | Run Expo ESLint                          |
+| `npx expo install --check` | Validate Expo SDK dependency versions |
 
 ## Project Structure
 
@@ -235,6 +294,25 @@ myroots/
 │   ├── .env.example
 │   ├── Dockerfile
 │   └── nginx.conf
+├── app/                       # Expo React Native mobile app
+│   ├── app/                   # Expo Router routes
+│   ├── src/
+│   │   ├── api/               # Axios API functions
+│   │   ├── components/        # Native reusable UI and feature components
+│   │   ├── constants/         # Query keys, config, storage keys
+│   │   ├── hooks/             # React Query hooks
+│   │   ├── providers/         # Auth and toast providers
+│   │   ├── screens/           # Route-level mobile screens
+│   │   ├── services/          # Secure storage and native services
+│   │   ├── theme/             # Colors, spacing, radius
+│   │   ├── types/             # TypeScript interfaces
+│   │   ├── utils/             # Shared business logic helpers
+│   │   └── validations/       # Zod validation schemas
+│   ├── assets/
+│   ├── package.json
+│   ├── app.json
+│   ├── eas.json
+│   └── README.md
 ├── scripts/                   # Utility scripts
 ├── docker-compose.yml         # Full-stack Docker orchestration
 ├── .dockerignore

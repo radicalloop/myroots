@@ -224,7 +224,7 @@ export function TreePage() {
         <div
           className={cn(
             "min-h-0 min-w-0 flex-1 p-3 sm:p-6 sm:pt-28",
-            treeView.root ? "pt-[138px]" : "pt-28",
+            treeView.root ? "pt-[172px]" : "pt-28",
           )}
         >
           <FamilyTreeView

@@ -20,7 +20,8 @@ import {
 import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
 import { MemberStatsBar } from "@/components/MemberStatsBar";
-import { Gender, TreePersonNode } from "@/types/api.types";
+import { TreePersonNode } from "@/types/api.types";
+import { countTreePeople } from "@/utils/tree.utils";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
 import { useTreePublicContext } from "@/contexts/TreePublicContext";
 import { treeToFlowElements, PersonNodeData } from "./layoutTree";
@@ -39,46 +40,19 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useMatch } from "react-router-dom";
 import clsx from "clsx";
 
-interface TreePeopleCounts {
-  men: number;
-  women: number;
-  total: number;
-}
-
-function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
-  const counts: TreePeopleCounts = { men: 0, women: 0, total: 0 };
-  const visited = new Set<string>();
-
-  const visit = (person: TreePersonNode | null) => {
-    if (!person || visited.has(person.id)) return;
-
-    visited.add(person.id);
-    counts.total += 1;
-
-    if (person.gender === Gender.MALE) {
-      counts.men += 1;
-    } else if (person.gender === Gender.FEMALE) {
-      counts.women += 1;
-    }
-
-    visit(person.spouse);
-    person.children.forEach(visit);
-  };
-
-  visit(root);
-  return counts;
-}
-
-function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
+function TreePeopleCount({ counts }: { counts: ReturnType<typeof countTreePeople> }) {
   if (counts.total === 0) return null;
   const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
 
   return (
     <MemberStatsBar
       counts={counts}
+      variant={isPublicTree ? "compact" : "default"}
       className={clsx(
-        "absolute top-[74px] left-4 z-10 md:top-4",
-        isPublicTree && "!top-4",
+        "absolute left-3 z-10 md:left-4 md:top-4",
+        isPublicTree
+          ? "top-3 max-w-[calc(100%-1.5rem)]"
+          : "top-[74px] max-md:hidden",
       )}
     />
   );

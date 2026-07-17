@@ -117,11 +117,11 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
   return (
     <div
       ref={containerRef}
-      className={clsx("relative max-w-full sm:max-w-sm", className)}
+      className={clsx("relative w-full sm:max-w-sm", className)}
     >
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-muted"
+          className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted sm:left-3.5 sm:h-4 sm:w-4"
           aria-hidden="true"
         />
         <input
@@ -138,7 +138,7 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
           aria-label="Search family tree"
           aria-expanded={isOpen && results.length > 0}
           aria-controls="person-search-results"
-          className="h-10 w-full rounded-xl border border-border-soft bg-white py-2.5 pl-10 pr-10 text-sm text-text-primary shadow-sm outline-none transition-all duration-200 placeholder:text-text-muted hover:border-warm-300 focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15 sm:h-11"
+          className="h-9 w-full rounded-full border-0 bg-warm-100/90 py-2 pl-9 pr-9 text-[13px] text-text-primary shadow-[inset_0_1px_2px_rgba(31,41,35,0.06)] ring-1 ring-border-soft/70 outline-none transition-all duration-200 placeholder:text-text-muted focus:bg-white focus:ring-2 focus:ring-brand-500/20 sm:h-11 sm:rounded-xl sm:border sm:border-border-soft sm:bg-white sm:py-2.5 sm:pl-10 sm:pr-10 sm:text-sm sm:shadow-sm sm:ring-0 sm:hover:border-warm-300 sm:focus:border-brand-400 sm:focus:ring-[3px] sm:focus:ring-brand-500/15"
         />
         {query && (
           <button
@@ -148,7 +148,7 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
               setIsOpen(false);
               inputRef.current?.focus();
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-md p-0.5 text-text-muted transition-colors hover:text-text-secondary"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-text-muted transition-colors hover:bg-warm-100 hover:text-text-secondary sm:right-3"
             aria-label="Clear search"
           >
             <X className="h-4 w-4" />
@@ -160,7 +160,7 @@ export function PersonSearch({ root, onSelect, className }: PersonSearchProps) {
         <div
           id="person-search-results"
           role="listbox"
-          className="absolute z-20 mt-2 max-h-72 w-full animate-scale-in overflow-y-auto rounded-[var(--radius-card)] border border-border-soft bg-white py-1.5 shadow-[var(--shadow-card-hover)] custom-scrollbar"
+          className="absolute z-20 mt-2 max-h-60 w-full animate-scale-in overflow-y-auto rounded-2xl border border-border-soft bg-white py-1 shadow-[var(--shadow-card-hover)] custom-scrollbar sm:max-h-72 sm:rounded-[var(--radius-card)] sm:py-1.5"
         >
           {results.length === 0 ? (
             <p className="px-4 py-3 text-sm text-text-muted">No people found</p>

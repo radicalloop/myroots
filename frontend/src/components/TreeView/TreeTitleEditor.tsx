@@ -139,7 +139,7 @@ export function TreeTitleEditor({
   }
 
   return (
-    <div className="mt-1 flex min-w-0 max-w-full items-center gap-2 sm:mt-1.5">
+    <div className="flex min-w-0 max-w-full items-center gap-2 sm:mt-1.5">
       <h1 className="min-w-0 truncate font-serif text-xl font-normal tracking-tight text-text-primary sm:text-3xl sm:leading-none">
         {treeName}
       </h1>

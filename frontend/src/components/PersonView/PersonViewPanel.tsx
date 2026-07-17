@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { PersonAvatar } from "@/components/PersonAvatar/PersonAvatar";
 import { ProfilePhotoSection } from "@/components/ProfilePhoto/ProfilePhotoSection";
 import { PersonNameEditor } from "@/components/PersonView/PersonNameEditor";
 import { Button } from "@/components/ui/Button";
@@ -409,7 +410,6 @@ export function PersonViewBody({
     onUpdate({ [field]: next } as UpdatePersonPayload);
     return true;
   };
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2">
@@ -549,9 +549,14 @@ export function PersonViewBody({
                 key={child.id}
                 className="flex min-w-[130px] items-center gap-2 rounded-lg border border-border-subtle bg-white px-2 py-1.5"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">
-                  {initialsFor(child)}
-                </span>
+                <PersonAvatar
+                  treeId={child.tree_id}
+                  personId={child.id}
+                  firstName={child.first_name}
+                  lastName={child.last_name}
+                  profileImagePath={child.profile_image_path}
+                  size="xs"
+                />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-text-primary capitalize">
                     {getPersonLabel(child)}

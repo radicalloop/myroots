@@ -1,6 +1,7 @@
 import { Person } from '../../../entities/Person';
 import { PersonSpouse } from '../../../entities/PersonSpouse';
 import { Tree } from '../../../entities/Tree';
+import { Gender } from '../../../types/common.types';
 import { Logger } from '@nestjs/common';
 
 const logger = new Logger('PersonMapper');
@@ -237,4 +238,64 @@ export function buildSpouseNode(
 
 export function findRootPerson(persons: Person[]): Person | undefined {
   return persons.find((p) => p.isRoot);
+}
+
+export function countVisibleTreePeople(
+  persons: Person[],
+  spouseRows: PersonSpouse[],
+): { men: number; women: number; total: number } {
+  const counts = { men: 0, women: 0, total: 0 };
+  const rootPerson = findRootPerson(persons);
+  if (!rootPerson) return counts;
+
+  const personById = new Map(persons.map((person) => [person.id, person]));
+  const spouseByPersonId = new Map<string, string>();
+  const visited = new Set<string>();
+
+  for (const row of spouseRows) {
+    if (personById.has(row.personId) && personById.has(row.spouseId)) {
+      spouseByPersonId.set(row.personId, row.spouseId);
+      spouseByPersonId.set(row.spouseId, row.personId);
+    }
+  }
+
+  const countPerson = (person: Person): void => {
+    if (visited.has(person.id)) return;
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+  };
+
+  const visitFamily = (person: Person): void => {
+    if (visited.has(person.id)) return;
+
+    countPerson(person);
+
+    const spouseId = spouseByPersonId.get(person.id);
+    const spouse = spouseId ? personById.get(spouseId) : null;
+    if (spouse) {
+      countPerson(spouse);
+    }
+
+    const childParentIds = new Set<string>([person.id]);
+    if (spouseId) childParentIds.add(spouseId);
+
+    for (const child of persons) {
+      if (
+        child.parentId &&
+        childParentIds.has(child.parentId) &&
+        !visited.has(child.id)
+      ) {
+        visitFamily(child);
+      }
+    }
+  };
+
+  visitFamily(rootPerson);
+  return counts;
 }

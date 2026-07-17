@@ -4,14 +4,17 @@ import { In, IsNull, Repository } from 'typeorm';
 import { Tree } from '../../entities/Tree';
 import { User } from '../../entities/User';
 import { Person } from '../../entities/Person';
+import { PersonSpouse } from '../../entities/PersonSpouse';
 import { TreeShare, TreeSharePermission, TreeShareStatus } from '../../entities/TreeShare';
 import { ApiError } from '../../utils/ApiError';
 import { CreateTreeDto, UpdateTreeDto } from './dto/tree.dto';
 import { CreateTreeShareDto, UpdateTreeShareDto } from './dto/share-tree.dto';
-import { mapTreeToResponse } from '../persons/helpers/person.mapper';
+import {
+  countVisibleTreePeople,
+  mapTreeToResponse,
+} from '../persons/helpers/person.mapper';
 import { ShareEmailService } from './share-email.service';
 import { v4 as uuidv4 } from 'uuid';
-import { Gender } from '../../types/common.types';
 
 export interface AccessibleTree {
   tree: Tree;
@@ -29,6 +32,8 @@ export class TreeService {
     private readonly userRepo: Repository<User>,
     @InjectRepository(Person)
     private readonly personRepo: Repository<Person>,
+    @InjectRepository(PersonSpouse)
+    private readonly spouseRepo: Repository<PersonSpouse>,
     private readonly shareEmailService: ShareEmailService,
   ) {}
 
@@ -91,35 +96,25 @@ export class TreeService {
 
     if (uniqueTreeIds.length === 0) return countByTreeId;
 
-    const rows = await this.personRepo
-      .createQueryBuilder('person')
-      .select('person.treeId', 'treeId')
-      .addSelect(
-        `SUM(CASE WHEN person.gender = :male THEN 1 ELSE 0 END)`,
-        'men',
-      )
-      .addSelect(
-        `SUM(CASE WHEN person.gender = :female THEN 1 ELSE 0 END)`,
-        'women',
-      )
-      .addSelect('COUNT(person.id)', 'total')
-      .where('person.treeId IN (:...treeIds)', { treeIds: uniqueTreeIds })
-      .andWhere('person.deletedAt IS NULL')
-      .groupBy('person.treeId')
-      .setParameters({ male: Gender.MALE, female: Gender.FEMALE })
-      .getRawMany<{
-        treeId: string;
-        men: string;
-        women: string;
-        total: string;
-      }>();
+    const [persons, spouseRows] = await Promise.all([
+      this.personRepo.find({
+        where: { treeId: In(uniqueTreeIds), deletedAt: IsNull() },
+        order: { createdAt: 'ASC' },
+      }),
+      this.spouseRepo.find({
+        where: { treeId: In(uniqueTreeIds), deletedAt: IsNull() },
+        order: { createdAt: 'ASC' },
+      }),
+    ]);
 
-    for (const row of rows) {
-      countByTreeId.set(row.treeId, {
-        men: Number(row.men) || 0,
-        women: Number(row.women) || 0,
-        total: Number(row.total) || 0,
-      });
+    for (const treeId of uniqueTreeIds) {
+      countByTreeId.set(
+        treeId,
+        countVisibleTreePeople(
+          persons.filter((person) => person.treeId === treeId),
+          spouseRows.filter((row) => row.treeId === treeId),
+        ),
+      );
     }
 
     return countByTreeId;

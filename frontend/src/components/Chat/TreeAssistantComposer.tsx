@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import { Mic, MicOff, Plus, SendHorizontal, X } from "lucide-react";
+import { Mic, Plus, SendHorizontal, X } from "lucide-react";
 import { focusChatInput } from "@/utils/focusChatInput";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 

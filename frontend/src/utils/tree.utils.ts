@@ -1,4 +1,10 @@
-import { TreePersonNode } from '@/types/api.types';
+import { Gender, TreePersonNode } from '@/types/api.types';
+
+export interface TreeMemberCounts {
+  men: number;
+  women: number;
+  total: number;
+}
 
 export type PersonTreeUpdates = Partial<
   Pick<
@@ -17,6 +23,30 @@ export type PersonTreeUpdates = Partial<
 export function formatPersonName(person: TreePersonNode): string {
   const lastName = person.last_name === '-' ? '' : person.last_name;
   return [person.first_name, lastName].filter(Boolean).join(' ').trim();
+}
+
+export function countTreePeople(root: TreePersonNode | null): TreeMemberCounts {
+  const counts: TreeMemberCounts = { men: 0, women: 0, total: 0 };
+  const visited = new Set<string>();
+
+  const visit = (person: TreePersonNode | null) => {
+    if (!person || visited.has(person.id)) return;
+
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+
+    visit(person.spouse);
+    person.children.forEach(visit);
+  };
+
+  visit(root);
+  return counts;
 }
 
 export function flattenPersons(root: TreePersonNode): TreePersonNode[] {

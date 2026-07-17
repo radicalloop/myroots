@@ -43,84 +43,84 @@ function PersonFlowNodeComponent({ data }: NodeProps) {
           assistantHighlighted && "pt-10",
         )}
       >
-      {theme.showDecorations && <PersonCardFemaleDecorations />}
+        {theme.showDecorations && <PersonCardFemaleDecorations />}
 
-      <Handle
-        type="target"
-        position={Position.Top}
-        className="!-top-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#b8c2ad] !opacity-100"
-      />
-      <div className="flex flex-1 flex-col items-center text-center">
-        <div
-          className={clsx(
-            "relative shrink-0 rounded-full p-2 transition-all duration-200",
-            theme.ring,
-            highlighted ? theme.ringHighlighted : theme.ringHover,
-          )}
-        >
-          <PersonAvatar
-            treeId={person.tree_id}
-            personId={person.id}
-            firstName={person.first_name}
-            lastName={person.last_name}
-            profileImagePath={person.profile_image_path}
-            size="tree"
-            variant={theme.avatarVariant}
-          />
-          <span
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="!-top-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#b8c2ad] !opacity-100"
+        />
+        <div className="flex flex-1 flex-col items-center text-center">
+          <div
             className={clsx(
-              "absolute bottom-5 right-2 h-4 w-4 rounded-full border-2 border-white shadow-sm",
-              theme.statusDot,
+              "relative shrink-0 rounded-full p-2 transition-all duration-200",
+              theme.ring,
+              highlighted ? theme.ringHighlighted : theme.ringHover,
             )}
-          />
-        </div>
-        <div className="mt-5 flex w-full flex-1 flex-col items-center">
-          <div className="flex w-full shrink-0 flex-col items-center">
-            <p
-              data-tree-node-label
-              className="w-full truncate font-serif text-3xl leading-none text-text-primary capitalize"
-              title={person.first_name}
-            >
-              {person.first_name}
-            </p>
-            <p
-              data-tree-node-years
+          >
+            <PersonAvatar
+              treeId={person.tree_id}
+              personId={person.id}
+              firstName={person.first_name}
+              lastName={person.last_name}
+              profileImagePath={person.profile_image_path}
+              size="tree"
+              variant={theme.avatarVariant}
+            />
+            <span
               className={clsx(
-                "mt-2 w-full truncate font-serif text-xl leading-none capitalize",
-                theme.lastName,
-                !lastName && "invisible",
+                "absolute bottom-5 right-2 h-4 w-4 rounded-full border-2 border-white shadow-sm",
+                theme.statusDot,
               )}
-              title={lastName || undefined}
-            >
-              {lastName || "\u00a0"}
-            </p>
-            {showHeartDividerSlot && (
-              <PersonCardHeartDivider invisible={!showHeartDivider} />
-            )}
+            />
           </div>
-          <div className="flex-1" aria-hidden="true" />
-          <div className="flex w-full shrink-0 justify-center pt-5">
-            {birthYear ? (
-              <div
-                className={clsx(
-                  "inline-flex h-9 items-center gap-2 rounded-full px-5 text-base font-bold",
-                  theme.birthBadge,
-                )}
+          <div className="mt-5 flex w-full flex-1 flex-col items-center">
+            <div className="flex w-full shrink-0 flex-col items-center">
+              <p
+                data-tree-node-label
+                className="w-full truncate font-serif text-3xl leading-none text-text-primary capitalize"
+                title={person.first_name}
               >
-                <CalendarDays className="h-4 w-4 stroke-[1.8]" />
-                <span className="tabular-nums">B. {birthYear}</span>
-              </div>
-            ) : (
-              <div className="h-9" aria-hidden="true" />
-            )}
+                {person.first_name}
+              </p>
+              <p
+                data-tree-node-years
+                className={clsx(
+                  "mt-2 w-full truncate font-serif text-xl leading-none capitalize",
+                  theme.lastName,
+                  !lastName && "invisible",
+                )}
+                title={lastName || undefined}
+              >
+                {lastName || "\u00a0"}
+              </p>
+              {showHeartDividerSlot && (
+                <PersonCardHeartDivider invisible={!showHeartDivider} />
+              )}
+            </div>
+            <div className="flex-1" aria-hidden="true" />
+            <div className="flex w-full shrink-0 justify-center pt-5">
+              {birthYear ? (
+                <div
+                  className={clsx(
+                    "inline-flex h-9 items-center gap-2 rounded-full px-5 text-base font-bold",
+                    theme.birthBadge,
+                  )}
+                >
+                  <CalendarDays className="h-4 w-4 stroke-[1.8]" />
+                  <span className="tabular-nums">B. {birthYear}</span>
+                </div>
+              ) : (
+                <div className="h-9" aria-hidden="true" />
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        className="!-bottom-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#c4ccc0] !opacity-100"
-      />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!-bottom-1.5 !h-3 !w-3 !border-2 !border-white !bg-[#c4ccc0] !opacity-100"
+        />
       </div>
     </div>
   );

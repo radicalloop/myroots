@@ -46,7 +46,9 @@ export interface TreeResponse {
 }
 
 export interface TreeViewResponse {
-  tree: Pick<TreeResponse, 'id' | 'name'> & { role?: 'OWNER' | 'VIEW' | 'EDIT' };
+  tree: Pick<TreeResponse, 'id' | 'name' | 'description'> & {
+    role?: 'OWNER' | 'VIEW' | 'EDIT';
+  };
   root: TreePersonNode | null;
 }
 
@@ -79,6 +81,18 @@ export function mapTreeToResponse(tree: Tree): TreeResponse {
     description: tree.description,
     created_at: tree.createdAt,
     updated_at: tree.updatedAt,
+  };
+}
+
+export function mapTreeToViewSummary(
+  tree: Tree,
+  role?: 'OWNER' | 'VIEW' | 'EDIT',
+): TreeViewResponse['tree'] {
+  return {
+    id: tree.id,
+    name: tree.name,
+    description: tree.description,
+    ...(role ? { role } : {}),
   };
 }
 

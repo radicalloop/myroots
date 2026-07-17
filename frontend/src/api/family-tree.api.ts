@@ -35,6 +35,9 @@ export const updateMe = (data: { firstName: string; lastName: string }) =>
 
 export const getTrees = () => api.get<ApiSuccessResponse<Tree[]>>('/trees');
 
+export const getTree = (treeId: string) =>
+  api.get<ApiSuccessResponse<Tree>>(`/trees/${treeId}`);
+
 export const createTree = (data: { name: string; description?: string }) =>
   api.post<ApiSuccessResponse<Tree>>('/trees', data);
 

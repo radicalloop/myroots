@@ -11,11 +11,12 @@ interface PersonAvatarProps {
   firstName: string;
   lastName: string;
   profileImagePath: string | null;
-  size?: "sm" | "md" | "lg" | "xl" | "tree";
+  size?: "xs" | "sm" | "md" | "lg" | "xl" | "tree";
   variant?: PersonAvatarVariant;
 }
 
 const sizeClasses = {
+  xs: "h-7 w-7 text-[10px]",
   sm: "h-12 w-12 text-sm",
   md: "h-16 w-16 text-base",
   lg: "h-24 w-24 text-lg",

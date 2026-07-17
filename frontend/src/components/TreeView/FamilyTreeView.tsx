@@ -19,7 +19,9 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
-import { Gender, TreePersonNode } from "@/types/api.types";
+import { MemberStatsBar } from "@/components/MemberStatsBar";
+import { TreePersonNode } from "@/types/api.types";
+import { countTreePeople } from "@/utils/tree.utils";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
 import { useTreePublicContext } from "@/contexts/TreePublicContext";
 import { treeToFlowElements, PersonNodeData } from "./layoutTree";
@@ -38,62 +40,20 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useMatch } from "react-router-dom";
 import clsx from "clsx";
 
-interface TreePeopleCounts {
-  men: number;
-  women: number;
-  total: number;
-}
-
-function countTreePeople(root: TreePersonNode | null): TreePeopleCounts {
-  const counts: TreePeopleCounts = { men: 0, women: 0, total: 0 };
-  const visited = new Set<string>();
-
-  const visit = (person: TreePersonNode | null) => {
-    if (!person || visited.has(person.id)) return;
-
-    visited.add(person.id);
-    counts.total += 1;
-
-    if (person.gender === Gender.MALE) {
-      counts.men += 1;
-    } else if (person.gender === Gender.FEMALE) {
-      counts.women += 1;
-    }
-
-    visit(person.spouse);
-    person.children.forEach(visit);
-  };
-
-  visit(root);
-  return counts;
-}
-
-function TreePeopleCount({ counts }: { counts: TreePeopleCounts }) {
+function TreePeopleCount({ counts }: { counts: ReturnType<typeof countTreePeople> }) {
   if (counts.total === 0) return null;
   const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
 
-  const items = [
-    { label: "Men", value: counts.men },
-    { label: "Women", value: counts.women },
-    { label: "Total", value: counts.total },
-  ];
-
   return (
-    <div
+    <MemberStatsBar
+      counts={counts}
       className={clsx(
-        "absolute top-[74px] md:top-4 left-4 z-10 flex flex-wrap items-center gap-1.5 text-xs font-medium text-text-secondary",
-        isPublicTree && "!top-4",
+        "absolute left-3 z-10 md:left-4 md:top-4",
+        isPublicTree
+          ? "top-3 max-w-[calc(100%-1.5rem)]"
+          : "top-[74px] max-md:hidden",
       )}
-    >
-      {items.map((item) => (
-        <span
-          key={item.label}
-          className="inline-flex h-7 items-center rounded-full border border-brand-100 bg-brand-50/80 px-2.5 text-brand-800"
-        >
-          {item.label}: {item.value}
-        </span>
-      ))}
-    </div>
+    />
   );
 }
 

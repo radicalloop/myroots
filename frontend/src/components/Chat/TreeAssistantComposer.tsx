@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useLayoutEffect, useRef } from "react";
 import clsx from "clsx";
-import { Mic, MicOff, Plus, SendHorizontal, X } from "lucide-react";
+import { Mic, Plus, SendHorizontal, X } from "lucide-react";
 import { focusChatInput } from "@/utils/focusChatInput";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
 
@@ -85,6 +85,10 @@ export function TreeAssistantComposer({
   }, [isSending]);
 
   const handleFormSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (listening) {
+      stopSpeech();
+    }
+
     onSubmit(event);
     requestAnimationFrame(() => {
       focusChatInput(inputRef);
@@ -174,16 +178,16 @@ export function TreeAssistantComposer({
               aria-label={listening ? "Stop recording" : "Start voice input"}
               className={`absolute right-2.5 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full transition disabled:opacity-50 ${
                 listening
-                  ? "text-red-500 hover:bg-red-50 hover:text-red-600"
+                  ? "text-brand-500 hover:bg-brand-500/10 hover:text-brand-600 bg-brand-500/10"
                   : "text-text-muted hover:bg-warm-50 hover:text-text-secondary"
               }`}
             >
               {listening ? (
                 <>
-                  <MicOff className="pointer-events-none h-4 w-4" />
+                  <Mic className="pointer-events-none h-4 w-4" />
                   <span className="pointer-events-none absolute right-0 top-0 flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-red-500" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-500 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-500" />
                   </span>
                 </>
               ) : (

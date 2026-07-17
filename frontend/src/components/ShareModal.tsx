@@ -73,7 +73,6 @@ export function ShareModal({
   const [email, setEmail] = useState("");
   const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
   const [publicLinkCopied, setPublicLinkCopied] = useState(false);
-  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const publicTreeUrl = useMemo(() => getPublicTreeUrl(treeId), [treeId]);
   const relativesCount = useMemo(
     () => countRelatives(treeView?.root),
@@ -100,10 +99,9 @@ export function ShareModal({
   };
 
   const handleShareSnapshot = async () => {
-    if (!treeView && isTreeLoading) return;
+    if (!treeView) return;
 
     try {
-      setIsSharingSnapshot(true);
       const mode = await shareTreeSnapshot({
         treeName,
         relativesCount,
@@ -118,8 +116,6 @@ export function ShareModal({
       toast.error(
         error instanceof Error ? error.message : "Could not share snapshot",
       );
-    } finally {
-      setIsSharingSnapshot(false);
     }
   };
 
@@ -169,7 +165,7 @@ export function ShareModal({
                   size="sm"
                   className="min-w-0 justify-center gap-2 whitespace-nowrap px-3"
                   onClick={handleShareSnapshot}
-                  loading={isSharingSnapshot || isTreeLoading}
+                  disabled={isTreeLoading || !treeView}
                 >
                   <MessageCircle className="h-4 w-4" aria-hidden="true" />
                   <span className="truncate">WhatsApp</span>

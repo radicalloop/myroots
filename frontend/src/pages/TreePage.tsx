@@ -162,6 +162,10 @@ export function TreePage() {
     updateTreeMutation.mutate({ treeId, data: { name } });
   };
 
+  const handleSaveTreeDescription = (description: string) => {
+    updateTreeMutation.mutate({ treeId, data: { description } });
+  };
+
   const handleDownloadPdf = async () => {
     if (!treeView) return;
     try {
@@ -205,11 +209,13 @@ export function TreePage() {
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TreePageToolbar
           treeName={treeView.tree.name}
+          treeDescription={treeView.tree.description}
           root={treeView.root}
           isDownloadingPdf={isDownloadingPdf}
           canEdit={canEdit}
           isSavingTreeName={updateTreeMutation.isPending}
           onSaveTreeName={handleSaveTreeName}
+          onSaveTreeDescription={handleSaveTreeDescription}
           onDownloadPdf={handleDownloadPdf}
           onAddRoot={openAddRoot}
           onSearchSelect={handleSearchSelect}
@@ -218,7 +224,7 @@ export function TreePage() {
         <div
           className={cn(
             "min-h-0 min-w-0 flex-1 p-3 sm:p-6 sm:pt-28",
-            treeView.root ? "pt-[118px]" : "pt-28",
+            treeView.root ? "pt-[172px]" : "pt-28",
           )}
         >
           <FamilyTreeView

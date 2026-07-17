@@ -90,7 +90,9 @@ export interface TreePersonNode extends Person {
 }
 
 export interface TreeView {
-  tree: Pick<Tree, 'id' | 'name'> & { role?: 'OWNER' | 'VIEW' | 'EDIT' };
+  tree: Pick<Tree, 'id' | 'name' | 'description'> & {
+    role?: 'OWNER' | 'VIEW' | 'EDIT';
+  };
   root: TreePersonNode | null;
 }
 

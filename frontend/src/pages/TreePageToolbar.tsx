@@ -119,11 +119,7 @@ export function TreePageToolbar({
                 className="w-full min-w-0 sm:w-72 sm:flex-none sm:max-w-none lg:w-80"
               />
               {memberCounts && memberCounts.total > 0 ? (
-                <MemberStatsBar
-                  counts={memberCounts}
-                  variant="compact"
-                  className="sm:hidden"
-                />
+                <MemberStatsBar counts={memberCounts} className="sm:hidden" />
               ) : null}
               <div className="hidden shrink-0 items-stretch gap-2 sm:flex">
                 <Button

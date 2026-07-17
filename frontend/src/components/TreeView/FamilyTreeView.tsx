@@ -47,7 +47,6 @@ function TreePeopleCount({ counts }: { counts: ReturnType<typeof countTreePeople
   return (
     <MemberStatsBar
       counts={counts}
-      variant={isPublicTree ? "compact" : "default"}
       className={clsx(
         "absolute left-3 z-10 md:left-4 md:top-4",
         isPublicTree

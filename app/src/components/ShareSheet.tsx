@@ -27,7 +27,9 @@ interface ShareSheetProps {
 }
 
 export function ShareSheet({ visible, treeId, treeName, isOwner, onClose }: ShareSheetProps) {
-  const { data: shares, isLoading } = useTreeShares(treeId);
+  const { data: shares, isLoading } = useTreeShares(treeId, {
+    enabled: visible && isOwner,
+  });
   const createShare = useCreateTreeShare(treeId);
   const updateShare = useUpdateTreeShare(treeId);
   const deleteShare = useDeleteTreeShare(treeId);
@@ -110,17 +112,21 @@ export function ShareSheet({ visible, treeId, treeName, isOwner, onClose }: Shar
         </View>
       ) : null}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Shared with</Text>
-        {isLoading ? <Text style={styles.muted}>Loading...</Text> : null}
-        {!isLoading && (!shares || shares.length === 0) ? <Text style={styles.muted}>No shares yet</Text> : null}
-        {shares?.map((share) => (
-          <View key={share.id} style={styles.shareRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.email}>{share.sharedWithEmail}</Text>
-              <Text style={styles.muted}>{share.status} - {share.permission === 'EDIT' ? 'Editor' : 'Viewer'}</Text>
-            </View>
-            {isOwner ? (
+      {isOwner ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Shared with</Text>
+          {isLoading ? <Text style={styles.muted}>Loading...</Text> : null}
+          {!isLoading && (!shares || shares.length === 0) ? (
+            <Text style={styles.muted}>No shares yet</Text>
+          ) : null}
+          {shares?.map((share) => (
+            <View key={share.id} style={styles.shareRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.email}>{share.sharedWithEmail}</Text>
+                <Text style={styles.muted}>
+                  {share.status} - {share.permission === 'EDIT' ? 'Editor' : 'Viewer'}
+                </Text>
+              </View>
               <View style={styles.shareActions}>
                 <Button
                   title={share.permission === 'EDIT' ? 'View' : 'Edit'}
@@ -128,16 +134,20 @@ export function ShareSheet({ visible, treeId, treeName, isOwner, onClose }: Shar
                   onPress={() =>
                     updateShare.mutate({
                       shareId: share.id,
-                      data: { permission: share.permission === 'EDIT' ? 'VIEW' : 'EDIT' }
+                      data: { permission: share.permission === 'EDIT' ? 'VIEW' : 'EDIT' },
                     })
                   }
                 />
-                <Button title="Remove" variant="ghost" onPress={() => deleteShare.mutate(share.id)} />
+                <Button
+                  title="Remove"
+                  variant="ghost"
+                  onPress={() => deleteShare.mutate(share.id)}
+                />
               </View>
-            ) : null}
-          </View>
-        ))}
-      </View>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </ModalSheet>
   );
 }

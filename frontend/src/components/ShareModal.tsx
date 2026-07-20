@@ -63,7 +63,9 @@ export function ShareModal({
   open,
   onClose,
 }: ShareModalProps) {
-  const { data: shares, isLoading } = useTreeShares(treeId);
+  const { data: shares, isLoading } = useTreeShares(treeId, {
+    enabled: open && isOwner,
+  });
   const { data: treeView, isLoading: isTreeLoading } = useTreeView(treeId, {
     enabled: open && isOwner,
   });
@@ -225,65 +227,63 @@ export function ShareModal({
           </div>
         )}
 
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Shared with
-          </h4>
-          {isLoading && (
-            <p className="text-sm text-text-secondary">Loading...</p>
-          )}
-          {!isLoading && (!shares || shares.length === 0) && (
-            <p className="text-sm text-text-secondary">No shares yet</p>
-          )}
-          {shares?.map((share) => (
-            <div
-              key={share.id}
-              className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted"
-            >
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <Tooltip content={share.sharedWithEmail} mobileOnly>
-                  <p className="text-sm font-medium text-text-primary max-sm:truncate">
-                    {share.sharedWithEmail}
-                  </p>
-                </Tooltip>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <Badge variant={statusVariant(share.status)}>
-                    {share.status}
-                  </Badge>
-                  <span className="text-xs text-text-muted">
-                    {share.permission === "EDIT" ? "Editor" : "Viewer"}
-                  </span>
+        {isOwner && (
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Shared with
+            </h4>
+            {isLoading && (
+              <p className="text-sm text-text-secondary">Loading...</p>
+            )}
+            {!isLoading && (!shares || shares.length === 0) && (
+              <p className="text-sm text-text-secondary">No shares yet</p>
+            )}
+            {shares?.map((share) => (
+              <div
+                key={share.id}
+                className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted"
+              >
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <Tooltip content={share.sharedWithEmail} mobileOnly>
+                    <p className="text-sm font-medium text-text-primary max-sm:truncate">
+                      {share.sharedWithEmail}
+                    </p>
+                  </Tooltip>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Badge variant={statusVariant(share.status)}>
+                      {share.status}
+                    </Badge>
+                    <span className="text-xs text-text-muted">
+                      {share.permission === "EDIT" ? "Editor" : "Viewer"}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <SharePermissionSelect
+                    value={share.permission}
+                    onChange={(permission) =>
+                      updateShare.mutate({
+                        shareId: share.id,
+                        data: { permission },
+                      })
+                    }
+                    disabled={updateShare.isPending}
+                  />
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    aria-label="Remove share"
+                    onClick={() => deleteShare.mutate(share.id)}
+                    loading={deleteShare.isPending}
+                    className="px-2 text-red-500 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {isOwner && (
-                  <>
-                    <SharePermissionSelect
-                      value={share.permission}
-                      onChange={(permission) =>
-                        updateShare.mutate({
-                          shareId: share.id,
-                          data: { permission },
-                        })
-                      }
-                      disabled={updateShare.isPending}
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label="Remove share"
-                      onClick={() => deleteShare.mutate(share.id)}
-                      loading={deleteShare.isPending}
-                      className="px-2 text-red-500 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );

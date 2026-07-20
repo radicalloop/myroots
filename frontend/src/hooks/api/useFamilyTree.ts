@@ -508,14 +508,18 @@ export function useDeletePersonImage(treeId: string) {
 
 // ─── Share hooks ─────────────────────────────────────────────────────────
 
-export function useTreeShares(treeId: string) {
+export function useTreeShares(
+  treeId: string,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: QUERY_KEYS.TREE_SHARES(treeId),
     queryFn: async () => {
       const res = await getTreeShares(treeId);
       return res.data.data;
     },
-    enabled: Boolean(treeId),
+    enabled: (options?.enabled ?? true) && Boolean(treeId),
+    retry: false,
   });
 }
 

@@ -7,6 +7,7 @@ interface TreeDescriptionEditorProps {
   description: string | null;
   onSave: (description: string) => void;
   isSaving?: boolean;
+  canEdit?: boolean;
 }
 
 const EMPTY_LABEL = "Add a description...";
@@ -19,6 +20,7 @@ export function TreeDescriptionEditor({
   description,
   onSave,
   isSaving = false,
+  canEdit = true,
 }: TreeDescriptionEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const submittedSaveRef = useRef(false);
@@ -89,6 +91,19 @@ export function TreeDescriptionEditor({
     submittedSaveRef.current = true;
     onSave(trimmed);
   };
+
+  if (!canEdit) {
+    if (!savedDescription) return null;
+
+    return (
+      <p
+        className="mt-0.5 max-w-md truncate text-xs leading-snug text-text-secondary"
+        title={savedDescription}
+      >
+        {savedDescription}
+      </p>
+    );
+  }
 
   if (isEditing) {
     return (

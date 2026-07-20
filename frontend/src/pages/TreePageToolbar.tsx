@@ -81,11 +81,13 @@ export function TreePageToolbar({
               treeName={treeName}
               onSave={onSaveTreeName}
               isSaving={isSavingTreeName}
+              canEdit={canEdit}
             />
             <TreeDescriptionEditor
               description={treeDescription}
               onSave={onSaveTreeDescription}
               isSaving={isSavingTreeName}
+              canEdit={canEdit}
             />
           </>
         ) : (

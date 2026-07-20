@@ -64,7 +64,7 @@ export function LoginPage() {
         </div>
 
         <Card className="w-full max-w-md animate-slide-up p-8" padding="none">
-          <div className="md:p-8">
+          <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
               Welcome back
             </h1>

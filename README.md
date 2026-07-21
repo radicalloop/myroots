@@ -38,7 +38,9 @@
   <em>Search anyone in your tree, export PDF, share with family</em>
 </p>
 
-https://github.com/user-attachments/assets/a0c8e0d2-c9c5-4869-8258-3e6369ff6100
+<p align="center">
+  <video src="https://github.com/user-attachments/assets/a0c8e0d2-c9c5-4869-8258-3e6369ff6100" poster="https://github.com/radicalloop/myroots/raw/master/docs/demo-thumbnail.jpg" controls muted width="900"></video>
+</p>
 
 <p align="center">
   <em>▶ Video not playing? <a href="./MyRoots-Product-Demo-final.mp4">Watch the full product demo (~52s)</a>.</em>

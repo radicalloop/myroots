@@ -12,8 +12,11 @@ const optionalPersonDate = (message: string) =>
     });
 
 export const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  email: z.string().trim().min(1, 'Email is required').email('Invalid email address'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .min(8, 'Password must be at least 8 characters'),
 });
 
 const passwordRules = z
@@ -26,7 +29,7 @@ const passwordRules = z
 export const signupSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required').max(100),
   lastName: z.string().trim().min(1, 'Last name is required').max(100),
-  email: z.string().email('Invalid email address'),
+  email: z.string().trim().min(1, 'Email is required').email('Invalid email address'),
   password: passwordRules,
 });
 

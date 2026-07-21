@@ -39,7 +39,11 @@
 </p>
 
 <p align="center">
-  <a href="./MyRoots-Product-Demo-final.mp4">▶ Watch the full product demo (~52s)</a>
+  <video src="https://github.com/radicalloop/myroots/raw/master/MyRoots-Product-Demo-final.mp4" controls muted width="900"></video>
+</p>
+
+<p align="center">
+  <em>▶ Video not playing? <a href="https://github.com/radicalloop/myroots/raw/master/MyRoots-Product-Demo-final.mp4">Watch the full product demo (~52s)</a>.</em>
 </p>
 
 ---

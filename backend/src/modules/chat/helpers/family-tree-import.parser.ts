@@ -12,14 +12,36 @@ export function parseImportSchemaFromMessage(
   message: string,
 ): FamilyTreeImportSchema | null {
   const trimmed = message.trim();
-  const jsonStart = trimmed.indexOf('{');
+  const objectStart = trimmed.indexOf('{');
+  const arrayStart = trimmed.indexOf('[');
+  const jsonStart =
+    objectStart === -1
+      ? arrayStart
+      : arrayStart === -1
+        ? objectStart
+        : Math.min(objectStart, arrayStart);
   if (jsonStart === -1) return null;
 
   const parsed = extractJsonFromAiResponse(trimmed.slice(jsonStart));
   if (!parsed || typeof parsed !== 'object') return null;
 
+  if (Array.isArray(parsed)) {
+    const firstNode = parsed.find(isImportLikeNode);
+    if (!firstNode) return null;
+
+    return {
+      proband: normalizeImportLikeNode(firstNode, 'root'),
+    };
+  }
+
   const schema = parsed as Record<string, unknown>;
-  if (!schema.proband || typeof schema.proband !== 'object') return null;
+  if (!schema.proband || typeof schema.proband !== 'object') {
+    if (!isImportLikeNode(schema)) return null;
+
+    return {
+      proband: normalizeImportLikeNode(schema, 'root'),
+    };
+  }
 
   return {
     schema_version:
@@ -28,6 +50,50 @@ export function parseImportSchemaFromMessage(
         : undefined,
     proband: schema.proband as ImportSchemaNode,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isImportLikeNode(value: unknown): value is Record<string, unknown> {
+  return isRecord(value) && typeof value.name === 'string' && value.name.trim().length > 0;
+}
+
+function normalizeExternalId(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+
+  return fallback;
+}
+
+function normalizeImportLikeNode(
+  value: Record<string, unknown>,
+  fallbackId: string,
+): ImportSchemaNode {
+  const id = normalizeExternalId(value.id, fallbackId);
+  const node: ImportSchemaNode = {
+    id,
+    name: value.name as string,
+    gender: typeof value.gender === 'string' ? value.gender : undefined,
+  };
+
+  if (isImportLikeNode(value.spouse)) {
+    node.spouse = normalizeImportLikeNode(value.spouse, `${id}:spouse`);
+  }
+
+  if (Array.isArray(value.children)) {
+    node.children = value.children
+      .filter(isImportLikeNode)
+      .map((child, index) =>
+        normalizeImportLikeNode(
+          child,
+          `${id}:child:${index}`,
+        ) as ImportSchemaChildNode,
+      );
+  }
+
+  return node;
 }
 
 export function splitImportName(fullName: string): {
@@ -59,6 +125,7 @@ function toRecord(
   parentExternalId: string | null,
   isRoot: boolean,
   records: Map<string, ImportPersonRecord>,
+  spouseOfExternalId: string | null = null,
 ): void {
   if (records.has(person.id)) return;
 
@@ -69,6 +136,7 @@ function toRecord(
     lastName,
     gender: mapImportGender(person.gender),
     parentExternalId,
+    spouseOfExternalId,
     isRoot,
   });
 }
@@ -162,6 +230,27 @@ function parseChildBranch(
   }
 }
 
+function parseSpouseBranch(
+  person: ImportSchemaNode,
+  records: Map<string, ImportPersonRecord>,
+): void {
+  if (!person.spouse) return;
+
+  toRecord(person.spouse, null, false, records, person.id);
+  parseChildBranch(person.spouse.children, person.id, records);
+}
+
+function parseSpouses(
+  person: ImportSchemaNode,
+  records: Map<string, ImportPersonRecord>,
+): void {
+  parseSpouseBranch(person, records);
+
+  for (const child of person.children ?? []) {
+    parseSpouses(child, records);
+  }
+}
+
 export function parseImportRecords(
   schema: FamilyTreeImportSchema,
 ): ImportPersonRecord[] {
@@ -176,7 +265,9 @@ export function parseImportRecords(
   );
 
   parseAncestorChain(proband.parents, proband.id, records);
+  parseSpouseBranch(proband, records);
   parseChildBranch(proband.children, proband.id, records);
+  parseSpouses(proband, records);
 
   return Array.from(records.values());
 }
@@ -193,6 +284,14 @@ export function sortImportRecords(
 
     const record = byId.get(externalId);
     if (!record) return;
+
+    if (
+      record.spouseOfExternalId &&
+      byId.has(record.spouseOfExternalId) &&
+      record.spouseOfExternalId !== externalId
+    ) {
+      visit(record.spouseOfExternalId);
+    }
 
     if (
       record.parentExternalId &&

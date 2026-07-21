@@ -24,16 +24,23 @@ import { PersonFormValues } from "@/validations/family-tree.validation";
 import { TreePersonNode, UpdatePersonPayload } from "@/types/api.types";
 import { ROUTES } from "@/constants/app.constants";
 import { toPersonPayload, toAddParentPayload } from "@/utils/person.utils";
-import { findPersonInTree } from "@/utils/tree.utils";
+import {
+  countFamilyDescendantsForPerson,
+  findPersonInTree,
+  getFamilyChildrenForPerson,
+} from "@/utils/tree.utils";
 import { announceChatFocusNode } from "@/utils/chat-focus-events";
 import { TreeAssistantPane } from "./TreeAssistantPane";
 import { ShareModal } from "@/components/ShareModal";
+import { cn } from "@/lib/utils";
 import { TreePageModals, TreePanelMode } from "./TreePageModals";
 import { TreePageToolbar } from "./TreePageToolbar";
+import { useAuth } from "@/providers/AuthProvider";
 
 export function TreePage() {
   const { treeId = "" } = useParams();
   const { data: treeView, isLoading, isError } = useTreeView(treeId);
+  const { user } = useAuth();
   const createPersonMutation = useCreatePerson(treeId);
   const addParentMutation = useAddParent(treeId);
   const addSpouseMutation = useAddSpouse(treeId);
@@ -44,6 +51,9 @@ export function TreePage() {
   const uploadImageMutation = useUploadPersonImage(treeId);
   const deleteImageMutation = useDeletePersonImage(treeId);
   const { messages, isSending, sendMessage, treeName } = useChatBot(true);
+  const currentUserName = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(" ");
 
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [panelMode, setPanelMode] = useState<TreePanelMode>("none");
@@ -63,7 +73,18 @@ export function TreePage() {
     return findPersonInTree(treeView.root, selectedPersonId);
   }, [selectedPersonId, treeView?.root]);
 
-  const canEdit = !treeView || !treeView.tree.role || treeView.tree.role !== 'VIEW';
+  const activeFamilyChildren = useMemo(() => {
+    if (!activePerson || !treeView?.root) return [];
+    return getFamilyChildrenForPerson(treeView.root, activePerson);
+  }, [activePerson, treeView?.root]);
+
+  const pendingDeleteDescendantCount = useMemo(() => {
+    if (!personPendingDelete || !treeView?.root) return 0;
+    return countFamilyDescendantsForPerson(treeView.root, personPendingDelete);
+  }, [personPendingDelete, treeView?.root]);
+
+  const canEdit =
+    !treeView || !treeView.tree.role || treeView.tree.role !== "VIEW";
 
   const openAddRoot = () => {
     if (!canEdit) return;
@@ -133,12 +154,16 @@ export function TreePage() {
   };
 
   const handleSearchSelect = (person: TreePersonNode) => {
+    closePanel();
     announceChatFocusNode(treeId, person.id, { force: true, source: "search" });
-    handleNodeClick(person);
   };
 
   const handleSaveTreeName = (name: string) => {
     updateTreeMutation.mutate({ treeId, data: { name } });
+  };
+
+  const handleSaveTreeDescription = (description: string) => {
+    updateTreeMutation.mutate({ treeId, data: { description } });
   };
 
   const handleDownloadPdf = async () => {
@@ -148,14 +173,13 @@ export function TreePage() {
       await treeViewRef.current?.downloadPdf(treeView.tree.name);
       toast.success("PDF downloaded successfully");
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error('[PDF Download]', message);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      console.error("[PDF Download]", message);
       toast.error(`Failed to download PDF: ${message}`);
     } finally {
       setIsDownloadingPdf(false);
     }
   };
-
 
   if (isLoading) {
     return (
@@ -185,23 +209,39 @@ export function TreePage() {
       <section className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <TreePageToolbar
           treeName={treeView.tree.name}
+          treeDescription={treeView.tree.description}
           root={treeView.root}
           isDownloadingPdf={isDownloadingPdf}
           canEdit={canEdit}
           isSavingTreeName={updateTreeMutation.isPending}
           onSaveTreeName={handleSaveTreeName}
+          onSaveTreeDescription={handleSaveTreeDescription}
           onDownloadPdf={handleDownloadPdf}
           onAddRoot={openAddRoot}
           onSearchSelect={handleSearchSelect}
           onShare={() => setShareModalOpen(true)}
         />
-        <div className="min-h-0 min-w-0 flex-1 p-3 pt-36 sm:p-6 sm:pt-28">
+        <div
+          className={cn(
+            "min-h-0 min-w-0 flex-1 p-3 sm:p-6 sm:pt-28",
+            treeView.root ? "pt-[172px]" : "pt-28",
+          )}
+        >
           <FamilyTreeView
             ref={treeViewRef}
             root={treeView.root}
             onNodeClick={handleNodeClick}
             immersive
             centerOnInitialLoad
+            emptyStateAction={
+              canEdit && !treeView.root
+                ? {
+                    label: "Add root person",
+                    onClick: openAddRoot,
+                    className: "w-full max-w-xs sm:hidden",
+                  }
+                : undefined
+            }
           />
         </div>
       </section>
@@ -211,6 +251,7 @@ export function TreePage() {
         messages={messages}
         isSending={isSending}
         treeName={treeName ?? treeView.tree.name}
+        currentUserName={currentUserName}
         onSend={sendMessage}
         onOpen={() => setAssistantOpen(true)}
         onClose={() => setAssistantOpen(false)}
@@ -220,7 +261,9 @@ export function TreePage() {
         treeId={treeId}
         panelMode={panelMode}
         activePerson={activePerson}
+        activeFamilyChildren={activeFamilyChildren}
         personPendingDelete={personPendingDelete}
+        pendingDeleteDescendantCount={pendingDeleteDescendantCount}
         canEdit={canEdit}
         createLoading={createPersonMutation.isPending}
         addParentLoading={addParentMutation.isPending}
@@ -234,12 +277,15 @@ export function TreePage() {
         }}
         onConfirmDelete={(mode) => {
           if (!personPendingDelete) return;
-          deletePersonMutation.mutate({ personId: personPendingDelete.id, mode }, {
-            onSuccess: () => {
-              setPersonPendingDelete(null);
-              closePanel();
+          deletePersonMutation.mutate(
+            { personId: personPendingDelete.id, mode },
+            {
+              onSuccess: () => {
+                setPersonPendingDelete(null);
+                closePanel();
+              },
             },
-          });
+          );
         }}
         onCreateRoot={handleCreateRoot}
         onCreateParent={handleCreateParent}

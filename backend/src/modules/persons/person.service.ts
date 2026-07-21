@@ -17,10 +17,11 @@ import {
 } from './dto/person.dto';
 import {
   mapPersonToResponse,
-  buildPersonTree,
+  buildPersonChildren,
   buildSpouseMap,
   buildSpouseNode,
   findRootPerson,
+  mapTreeToViewSummary,
   TreeViewResponse,
   PersonResponse,
   TreePersonNode,
@@ -236,15 +237,34 @@ export class PersonService {
         const persons = await personRepo.find({
           where: { treeId, deletedAt: IsNull() },
         });
+        const spouseLinks = await spouseRepo.find({
+          where: { treeId, deletedAt: IsNull() },
+        });
+        const spouseByPersonId = new Map<string, string>();
+
+        for (const link of spouseLinks) {
+          spouseByPersonId.set(link.personId, link.spouseId);
+          spouseByPersonId.set(link.spouseId, link.personId);
+        }
+
         const idsToDelete = new Set<string>([personId]);
         let changed = true;
 
         while (changed) {
           changed = false;
+          const parentIds = new Set(idsToDelete);
+
+          for (const id of idsToDelete) {
+            const spouseId = spouseByPersonId.get(id);
+            if (spouseId) {
+              parentIds.add(spouseId);
+            }
+          }
+
           for (const item of persons) {
             if (
               item.parentId &&
-              idsToDelete.has(item.parentId) &&
+              parentIds.has(item.parentId) &&
               !idsToDelete.has(item.id)
             ) {
               idsToDelete.add(item.id);
@@ -252,10 +272,6 @@ export class PersonService {
             }
           }
         }
-
-        const spouseLinks = await spouseRepo.find({
-          where: { treeId, deletedAt: IsNull() },
-        });
 
         await spouseRepo.save(
           spouseLinks
@@ -378,12 +394,17 @@ export class PersonService {
       ? await this.enrichPersonTree({
           ...mapPersonToResponse(rootPerson),
           spouse: buildSpouseNode(rootPerson.id, persons, spousesMap),
-          children: buildPersonTree(persons, rootPerson.id, spousesMap),
+          children: buildPersonChildren(
+            rootPerson,
+            persons,
+            spousesMap,
+            new Set([rootPerson.id]),
+          ),
         })
       : null;
 
     return {
-      tree: { id: tree.id, name: tree.name, role: permission },
+      tree: mapTreeToViewSummary(tree, permission),
       root,
     };
   }
@@ -664,12 +685,17 @@ export class PersonService {
       ? await this.enrichPersonTree({
           ...mapPersonToResponse(rootPerson),
           spouse: buildSpouseNode(rootPerson.id, persons, spousesMap),
-          children: buildPersonTree(persons, rootPerson.id, spousesMap),
+          children: buildPersonChildren(
+            rootPerson,
+            persons,
+            spousesMap,
+            new Set([rootPerson.id]),
+          ),
         })
       : null;
 
     return {
-      tree: { id: tree.id, name: tree.name, role: 'VIEW' as const },
+      tree: mapTreeToViewSummary(tree, 'VIEW'),
       root,
     };
   }

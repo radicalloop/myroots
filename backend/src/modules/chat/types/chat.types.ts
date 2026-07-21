@@ -6,6 +6,7 @@ export type ChatAction = 'NONE' | 'ADD_PERSON' | 'UPDATE_PERSON' | 'ADD_SPOUSE' 
 export interface AiActionItem {
   action: ChatAction;
   target_name: string | null;
+  target_id?: string;
   person: AiPersonFields | null;
 }
 

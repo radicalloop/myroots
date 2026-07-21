@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { PersonAvatar } from "@/components/PersonAvatar/PersonAvatar";
 import { ProfilePhotoSection } from "@/components/ProfilePhoto/ProfilePhotoSection";
 import { PersonNameEditor } from "@/components/PersonView/PersonNameEditor";
 import { Button } from "@/components/ui/Button";
@@ -48,6 +49,7 @@ interface PersonViewHeaderProps {
 
 interface PersonViewBodyProps {
   person: TreePersonNode;
+  familyChildren?: TreePersonNode[];
   canEdit: boolean;
   onAddParent: () => void;
   onAddChild: () => void;
@@ -142,7 +144,10 @@ function FieldInput({
           onCancel();
         }
       }}
-      className="mt-1.5 w-full rounded-md border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60"
+      className={clsx(
+        "mt-1.5 w-full rounded-md border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-text-primary outline-none transition focus:border-brand-400 focus:ring-2 focus:ring-brand-500/15 disabled:opacity-60",
+        type === "date" && "input-date-sm",
+      )}
     />
   );
 }
@@ -364,6 +369,7 @@ export function PersonViewHeader({
 
 export function PersonViewBody({
   person,
+  familyChildren = person.children,
   canEdit,
   onAddParent,
   onAddChild,
@@ -404,7 +410,6 @@ export function PersonViewBody({
     onUpdate({ [field]: next } as UpdatePersonPayload);
     return true;
   };
-
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2">
@@ -527,26 +532,31 @@ export function PersonViewBody({
         )}
       </div>
 
-      {person.children.length > 0 && (
+      {familyChildren.length > 0 && (
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <h4 className="text-xs font-semibold uppercase tracking-wide text-text-muted">
               Family
             </h4>
             <span className="text-xs text-text-muted">
-              {person.children.length}{" "}
-              {person.children.length === 1 ? "child" : "children"}
+              {familyChildren.length}{" "}
+              {familyChildren.length === 1 ? "child" : "children"}
             </span>
           </div>
           <div className="custom-scrollbar flex gap-2 overflow-x-auto pb-0.5">
-            {person.children.map((child) => (
+            {familyChildren.map((child) => (
               <div
                 key={child.id}
                 className="flex min-w-[130px] items-center gap-2 rounded-lg border border-border-subtle bg-white px-2 py-1.5"
               >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-600 text-[10px] font-bold text-white">
-                  {initialsFor(child)}
-                </span>
+                <PersonAvatar
+                  treeId={child.tree_id}
+                  personId={child.id}
+                  firstName={child.first_name}
+                  lastName={child.last_name}
+                  profileImagePath={child.profile_image_path}
+                  size="xs"
+                />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-semibold text-text-primary capitalize">
                     {getPersonLabel(child)}

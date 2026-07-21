@@ -5,6 +5,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Build output
 dist/
@@ -60,6 +61,11 @@ backend/dist/
 tmp/
 temp/
 *.tmp
+
+# Local image uploads (when AWS S3 is not configured)
+temp/uploads/
+backend/temp/
+uploads/
 
 # Docker
 docker-compose.override.yml

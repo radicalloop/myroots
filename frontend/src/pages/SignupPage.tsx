@@ -65,7 +65,7 @@ export function SignupPage() {
         </div>
 
         <Card className="w-full max-w-md animate-slide-up p-8" padding="none">
-          <div className="md:p-8">
+          <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
               Create account
             </h1>
@@ -77,10 +77,29 @@ export function SignupPage() {
               onSubmit={handleSubmit((values) => signupMutation.mutate(values))}
               className="mt-8 space-y-5"
             >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Input
+                  label="First name"
+                  type="text"
+                  placeholder="First name"
+                  autoComplete="given-name"
+                  {...register("firstName")}
+                  error={errors.firstName?.message}
+                />
+                <Input
+                  label="Last name"
+                  type="text"
+                  placeholder="Last name"
+                  autoComplete="family-name"
+                  {...register("lastName")}
+                  error={errors.lastName?.message}
+                />
+              </div>
               <Input
                 label="Email"
                 type="email"
                 placeholder="you@example.com"
+                autoComplete="email"
                 {...register("email")}
                 error={errors.email?.message}
               />
@@ -89,6 +108,7 @@ export function SignupPage() {
                 type="password"
                 placeholder="At least 8 characters"
                 hint="Use 8+ characters with uppercase, lowercase, and a number"
+                autoComplete="new-password"
                 {...register("password")}
                 error={errors.password?.message}
               />

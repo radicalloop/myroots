@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 import { Button } from './Button';
 
 interface EmptyStateProps {
@@ -8,6 +9,7 @@ interface EmptyStateProps {
   action?: {
     label: string;
     onClick: () => void;
+    className?: string;
   };
 }
 
@@ -24,7 +26,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
         {description}
       </p>
       {action && (
-        <Button onClick={action.onClick} className="mt-6">
+        <Button onClick={action.onClick} className={cn('mt-6', action.className)}>
           {action.label}
         </Button>
       )}

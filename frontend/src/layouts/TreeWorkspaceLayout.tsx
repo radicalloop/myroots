@@ -1,13 +1,17 @@
-import { Link, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 import { Trees } from "lucide-react";
 import { useAuth } from "@/providers/AuthProvider";
 import { useLogout } from "@/hooks/useLogout";
+import { useMe } from "@/hooks/api/useFamilyTree";
 import { UserMenu } from "@/components/Header/UserMenu";
 import { ROUTES } from "@/constants/app.constants";
 
 export function TreeWorkspaceLayout() {
   const { user } = useAuth();
   const logout = useLogout();
+  const location = useLocation();
+  const isPublicTreeRoute = location.pathname.startsWith("/public/tree/");
+  useMe({ enabled: !isPublicTreeRoute });
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-[var(--tree-canvas-bg)]">

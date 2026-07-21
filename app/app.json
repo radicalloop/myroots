@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "MyRoots",
+    "slug": "myroots-mobile",
+    "scheme": "myroots",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#F7F4EC"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myroots.mobile",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "MyRoots uses your photo library so you can add profile photos to family members.",
+        "NSCameraUsageDescription": "MyRoots can use your camera so you can capture profile photos for family members."
+      }
+    },
+    "android": {
+      "package": "com.myroots.mobile",
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MyRoots uses your photos so you can add profile photos to family members.",
+          "cameraPermission": "MyRoots can use your camera so you can capture profile photos for family members."
+        }
+      ],
+      "expo-asset"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "replace-with-eas-project-id"
+      }
+    }
+  }
+}

@@ -21,6 +21,8 @@ export enum Gender {
 export interface User {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
   createdAt: string;
 }
 
@@ -34,6 +36,11 @@ export interface Tree {
   user_id: string;
   name: string;
   description: string | null;
+  counts?: {
+    men: number;
+    women: number;
+    total: number;
+  };
   role?: 'OWNER' | 'VIEW' | 'EDIT';
   sharedByEmail?: string;
   created_at: string;
@@ -83,7 +90,9 @@ export interface TreePersonNode extends Person {
 }
 
 export interface TreeView {
-  tree: Pick<Tree, 'id' | 'name'> & { role?: 'OWNER' | 'VIEW' | 'EDIT' };
+  tree: Pick<Tree, 'id' | 'name' | 'description'> & {
+    role?: 'OWNER' | 'VIEW' | 'EDIT';
+  };
   root: TreePersonNode | null;
 }
 

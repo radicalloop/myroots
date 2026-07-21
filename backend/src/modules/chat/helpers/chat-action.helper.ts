@@ -100,32 +100,39 @@ async function applySingleAction(
     }
 
     const targetName = item.target_name?.trim();
-    if (!targetName) {
+    if (!targetName && !item.target_id) {
       throw new ApiError(400, 'Please specify which person to add a spouse to by name.');
     }
 
-    const target = resolvePersonByName(persons, targetName);
-    if (target.kind === 'not_found') {
-      throw new ApiError(
-        400,
-        `Could not find anyone named "${targetName}" in this tree.`,
-      );
-    }
-    if (target.kind === 'ambiguous') {
-      throw new ApiError(
-        400,
-        `Multiple people match "${targetName}". Please be more specific.`,
-      );
+    let targetPerson = item.target_id
+      ? persons.find((person) => person.id === item.target_id)
+      : null;
+
+    if (!targetPerson) {
+      const target = resolvePersonByName(persons, targetName!);
+      if (target.kind === 'not_found') {
+        throw new ApiError(
+          400,
+          `Could not find anyone named "${targetName}" in this tree.`,
+        );
+      }
+      if (target.kind === 'ambiguous') {
+        throw new ApiError(
+          400,
+          `Multiple people match "${targetName}". Please be more specific.`,
+        );
+      }
+      targetPerson = target.person;
     }
 
     const spouseDto = buildSpousePayload(
       persons,
       item.person,
-      target.person.id,
+      targetPerson.id,
     );
     return personService.addSpouse(
       treeId,
-      target.person.id,
+      targetPerson.id,
       userId,
       spouseDto,
     );

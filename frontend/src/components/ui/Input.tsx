@@ -16,19 +16,26 @@ export function Input({
   id,
   type,
   required,
+  disabled,
+  readOnly,
   ...props
 }: InputProps) {
   const inputId = id ?? props.name;
   const [showPassword, setShowPassword] = useState(false);
   const isPassword = type === "password";
+  const isDate = type === "date";
   const inputType = isPassword && showPassword ? "text" : type;
+  const isInactive = disabled || readOnly;
 
   return (
     <div className="space-y-1.5">
       {label && (
         <label
           htmlFor={inputId}
-          className="block text-sm font-medium text-text-primary"
+          className={clsx(
+            "block text-sm font-medium",
+            isInactive ? "text-text-secondary" : "text-text-primary",
+          )}
         >
           {label}
           {required && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
@@ -39,14 +46,30 @@ export function Input({
           id={inputId}
           type={inputType}
           required={required}
+          disabled={disabled}
+          readOnly={readOnly}
+          aria-readonly={readOnly || undefined}
           className={clsx(
-            "w-full rounded-[var(--radius-input)] border bg-white px-3.5 py-2.5 text-sm text-text-primary",
-            "placeholder:text-text-muted transition-all duration-200",
-            "outline-none focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15",
+            "w-full rounded-[var(--radius-input)] border px-3.5 py-2.5 text-sm",
+            "placeholder:text-text-muted transition-all duration-200 outline-none",
             isPassword && "pr-11",
-            error
-              ? "border-red-300 focus:border-red-400 focus:ring-red-500/15"
-              : "border-border-soft hover:border-warm-300",
+            isDate && "input-date",
+            isInactive
+              ? [
+                  "border-border-soft bg-warm-100 text-text-muted",
+                  "shadow-none",
+                  "hover:border-border-soft",
+                  "focus:border-border-soft focus:ring-0",
+                ]
+              : [
+                  "bg-white text-text-primary",
+                  "focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15",
+                  error
+                    ? "border-red-300 focus:border-red-400 focus:ring-red-500/15"
+                    : "border-border-soft hover:border-warm-300",
+                ],
+            disabled && "cursor-not-allowed opacity-75",
+            readOnly && !disabled && "cursor-default",
             className,
           )}
           {...props}

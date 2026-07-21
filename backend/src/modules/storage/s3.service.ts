@@ -1,38 +1,44 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { LocalStorageDriver } from './local-storage.driver';
+import { S3StorageDriver } from './s3-storage.driver';
 import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  HeadObjectCommand,
-  DeleteObjectCommand,
-  ListObjectsV2Command,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { v4 as uuidv4 } from 'uuid';
-import { ApiError } from '../../utils/ApiError';
+  buildChatImageKey,
+  buildProfileImageKey,
+  getMaxImageSizeBytes,
+  isAwsConfigured,
+  validateImageContentType,
+} from './helpers/storage.helper';
 
-const ALLOWED_IMAGE_TYPES = [
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/gif',
-];
+type StorageDriver = S3StorageDriver | LocalStorageDriver;
 
 @Injectable()
 export class S3Service {
-  private client: S3Client | null = null;
+  private readonly logger = new Logger(S3Service.name);
+  private readonly driver: StorageDriver;
+  private readonly useS3: boolean;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) {
+    this.useS3 = isAwsConfigured(configService);
 
-  validateImageContentType(contentType: string): void {
-    if (!ALLOWED_IMAGE_TYPES.includes(contentType.toLowerCase())) {
-      throw new ApiError(
-        400,
-        'Only image files are allowed (jpeg, png, webp, gif)',
+    if (this.useS3) {
+      this.driver = new S3StorageDriver(configService);
+      this.logger.log('Image storage: AWS S3');
+    } else {
+      const local = new LocalStorageDriver(configService);
+      this.driver = local;
+      this.logger.log(
+        `Image storage: local (${local.getRootDir()}) — AWS credentials not configured`,
       );
     }
+  }
+
+  isUsingS3(): boolean {
+    return this.useS3;
+  }
+
+  validateImageContentType(contentType: string): void {
+    validateImageContentType(contentType);
   }
 
   buildProfileImageKey(
@@ -40,8 +46,7 @@ export class S3Service {
     personId: string,
     contentType: string,
   ): string {
-    const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
-    return `trees/${treeId}/persons/${personId}/${uuidv4()}.${ext}`;
+    return buildProfileImageKey(treeId, personId, contentType);
   }
 
   buildChatImageKey(
@@ -49,185 +54,51 @@ export class S3Service {
     userId: string,
     contentType: string,
   ): string {
-    const ext = contentType.split('/')[1]?.replace('jpeg', 'jpg') ?? 'jpg';
-    return `chat-images/${treeId}/${userId}/${uuidv4()}.${ext}`;
+    return buildChatImageKey(treeId, userId, contentType);
   }
 
-  async getReadableImageUrl(key: string): Promise<string> {
-    const publicBaseUrl = this.configService.get<string>(
-      'AWS_S3_PUBLIC_BASE_URL',
-    );
-
-    if (publicBaseUrl) {
-      return `${publicBaseUrl.replace(/\/$/, '')}/${key}`;
-    }
-
-    return this.generateReadSignedUrl(key);
+  getMaxImageSizeBytes(): number {
+    return getMaxImageSizeBytes(this.configService);
   }
 
-  async deleteChatImagesOlderThan(cutoff: Date): Promise<number> {
-    let deleted = 0;
-    let continuationToken: string | undefined;
-
-    do {
-      const response = await this.getClient().send(
-        new ListObjectsV2Command({
-          Bucket: this.getBucketName(),
-          Prefix: 'chat-images/',
-          ContinuationToken: continuationToken,
-        }),
-      );
-
-      for (const object of response.Contents ?? []) {
-        if (!object.Key || !object.LastModified) continue;
-        if (object.LastModified >= cutoff) continue;
-
-        await this.deleteObject(object.Key);
-        deleted += 1;
-      }
-
-      continuationToken = response.NextContinuationToken;
-    } while (continuationToken);
-
-    return deleted;
+  getReadableImageUrl(key: string): Promise<string> {
+    return this.driver.getReadableImageUrl(key);
   }
 
-  async generateUploadSignedUrl(
+  deleteChatImagesOlderThan(cutoff: Date): Promise<number> {
+    return this.driver.deleteChatImagesOlderThan(cutoff);
+  }
+
+  generateUploadSignedUrl(
     key: string,
     contentType: string,
   ): Promise<{ uploadUrl: string; objectPath: string }> {
-    this.validateImageContentType(contentType);
-
-    const command = new PutObjectCommand({
-      Bucket: this.getBucketName(),
-      Key: key,
-      ContentType: contentType,
-    });
-
-    const uploadUrl = await getSignedUrl(this.getClient(), command, {
-      expiresIn: this.getUploadSignedUrlExpiresIn(),
-      signableHeaders: new Set(['content-type']),
-      unhoistableHeaders: new Set(['content-type']),
-    });
-
-    return { uploadUrl, objectPath: key };
+    return this.driver.generateUploadSignedUrl(key, contentType);
   }
 
-  async generateReadSignedUrl(key: string): Promise<string> {
-    const command = new GetObjectCommand({
-      Bucket: this.getBucketName(),
-      Key: key,
-    });
-
-    return getSignedUrl(this.getClient(), command, {
-      expiresIn: this.getReadSignedUrlExpiresIn(),
-    });
+  generateReadSignedUrl(key: string): Promise<string> {
+    return this.driver.generateReadSignedUrl(key);
   }
 
-  async objectExists(key: string): Promise<boolean> {
-    try {
-      await this.getClient().send(
-        new HeadObjectCommand({
-          Bucket: this.getBucketName(),
-          Key: key,
-        }),
-      );
-      return true;
-    } catch {
-      return false;
-    }
+  objectExists(key: string): Promise<boolean> {
+    return this.driver.objectExists(key);
   }
 
-  async uploadObject(
+  uploadObject(
     key: string,
     body: Buffer,
     contentType: string,
   ): Promise<void> {
-    this.validateImageContentType(contentType);
-
-    await this.getClient().send(
-      new PutObjectCommand({
-        Bucket: this.getBucketName(),
-        Key: key,
-        Body: body,
-        ContentType: contentType,
-      }),
-    );
+    return this.driver.uploadObject(key, body, contentType);
   }
 
-  async deleteObject(key: string): Promise<void> {
-    await this.getClient().send(
-      new DeleteObjectCommand({
-        Bucket: this.getBucketName(),
-        Key: key,
-      }),
-    );
+  deleteObject(key: string): Promise<void> {
+    return this.driver.deleteObject(key);
   }
 
-  async getObjectStream(
+  getObjectStream(
     key: string,
   ): Promise<{ body: NodeJS.ReadableStream; contentType: string }> {
-    const response = await this.getClient().send(
-      new GetObjectCommand({
-        Bucket: this.getBucketName(),
-        Key: key,
-      }),
-    );
-
-    if (!response.Body) {
-      throw new ApiError(404, 'Image file not found in storage');
-    }
-
-    return {
-      body: response.Body as NodeJS.ReadableStream,
-      contentType: response.ContentType ?? 'application/octet-stream',
-    };
-  }
-
-  getMaxImageSizeBytes(): number {
-    const mb = Number(
-      this.configService.get('PROFILE_IMAGE_MAX_SIZE_MB') ?? 5,
-    );
-    return mb * 1024 * 1024;
-  }
-
-  private getClient(): S3Client {
-    if (!this.client) {
-      this.client = new S3Client({
-        region: this.configService.get('AWS_REGION') ?? 'us-east-1',
-        credentials: {
-          accessKeyId: this.configService.get('AWS_ACCESS_KEY_ID') ?? '',
-          secretAccessKey:
-            this.configService.get('AWS_SECRET_ACCESS_KEY') ?? '',
-        },
-        requestChecksumCalculation: 'WHEN_REQUIRED',
-        responseChecksumValidation: 'WHEN_REQUIRED',
-      });
-    }
-    return this.client;
-  }
-
-  private getBucketName(): string {
-    const bucket =
-      this.configService.get('AWS_BUCKET_NAME') ??
-      this.configService.get('AWS_S3_BUCKET');
-    if (!bucket) {
-      throw new ApiError(500, 'S3 bucket is not configured');
-    }
-    return bucket;
-  }
-
-  private getUploadSignedUrlExpiresIn(): number {
-    return Number(
-      this.configService.get('AWS_SIGNED_URL_EXPIRES_IN_SECONDS') ?? 300,
-    );
-  }
-
-  private getReadSignedUrlExpiresIn(): number {
-    return Number(
-      this.configService.get('AWS_READ_URL_EXPIRES_IN_SECONDS') ??
-        this.configService.get('AWS_SIGNED_URL_EXPIRES_IN_SECONDS') ??
-        3600,
-    );
+    return this.driver.getObjectStream(key);
   }
 }

@@ -7,6 +7,7 @@ import { ChatMessageBubble, TypingIndicator } from "./ChatMessageBubble";
 import { Button } from "@/components/ui/Button";
 import { useImageDrop } from "@/hooks/useImageDrop";
 import { useSpeechToText } from "@/hooks/useSpeechToText";
+import { focusChatInput } from "@/utils/focusChatInput";
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -33,6 +34,7 @@ export function ChatPanel({
   } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const processFile = useCallback(async (file: File) => {
     try {
@@ -94,6 +96,9 @@ export function ChatPanel({
     onSend(input, attachedImage?.payload);
     setInput("");
     clearAttachedImage();
+    requestAnimationFrame(() => {
+      focusChatInput(inputRef);
+    });
   };
 
   const handleClose = () => {
@@ -240,6 +245,7 @@ export function ChatPanel({
           </button>
         )}
         <textarea
+          ref={inputRef}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
@@ -251,7 +257,6 @@ export function ChatPanel({
           placeholder="Ask anything..."
           rows={1}
           className="max-h-32 min-h-10 flex-1 resize-none overflow-y-auto rounded-[var(--radius-input)] border border-border-soft bg-white px-3.5 py-2.5 text-sm outline-none transition-all duration-200 [scrollbar-width:none] [-ms-overflow-style:none] placeholder:text-text-muted focus:border-brand-400 focus:ring-[3px] focus:ring-brand-500/15 [&::-webkit-scrollbar]:hidden resize-none"
-          disabled={isSending}
         />
         <Button
           type="submit"

@@ -1,4 +1,5 @@
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, getDisplayNameFromEmail, getInitialsFromEmail } from "@/lib/utils";
 import { User } from "@/types/api.types";
+import { ROUTES } from "@/constants/app.constants";
 
 interface UserMenuProps {
   user: User;
@@ -16,14 +18,21 @@ interface UserMenuProps {
 
 function UserAvatar({
   email,
+  firstName,
+  lastName,
   size = "sm",
   className,
 }: {
   email: string;
+  firstName?: string;
+  lastName?: string;
   size?: "sm" | "md";
   className?: string;
 }) {
-  const initials = getInitialsFromEmail(email);
+  const initials =
+    firstName || lastName
+      ? `${firstName?.[0] ?? ""}${lastName?.[0] ?? ""}`.toUpperCase()
+      : getInitialsFromEmail(email);
   const sizeClass = size === "md" ? "h-10 w-10 text-sm" : "h-9 w-9 text-xs";
 
   return (
@@ -41,7 +50,8 @@ function UserAvatar({
 }
 
 export function UserMenu({ user, onLogout }: UserMenuProps) {
-  const displayName = getDisplayNameFromEmail(user.email);
+  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+  const displayName = fullName || getDisplayNameFromEmail(user.email);
 
   return (
     <DropdownMenu>
@@ -56,13 +66,22 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
           )}
           aria-label="Open user menu"
         >
-          <UserAvatar email={user.email} />
+          <UserAvatar
+            email={user.email}
+            firstName={user.firstName}
+            lastName={user.lastName}
+          />
         </button>
       </DropdownMenuTrigger>
 
       <DropdownMenuContent align="end" className="min-w-[16rem] p-1.5">
         <div className="flex items-center gap-3 rounded-xl bg-warm-50/50 px-3 py-3">
-          <UserAvatar email={user.email} size="md" />
+          <UserAvatar
+            email={user.email}
+            firstName={user.firstName}
+            lastName={user.lastName}
+            size="md"
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text-primary">
               {displayName}
@@ -74,6 +93,13 @@ export function UserMenu({ user, onLogout }: UserMenuProps) {
         </div>
 
         <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild className="mx-0.5 gap-2">
+          <Link to={ROUTES.PROFILE}>
+            <UserRound className="h-4 w-4" aria-hidden="true" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
 
         <DropdownMenuItem
           onSelect={onLogout}

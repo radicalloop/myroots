@@ -1,4 +1,10 @@
-import { TreePersonNode } from '@/types/api.types';
+import { Gender, TreePersonNode } from '@/types/api.types';
+
+export interface TreeMemberCounts {
+  men: number;
+  women: number;
+  total: number;
+}
 
 export type PersonTreeUpdates = Partial<
   Pick<
@@ -17,6 +23,30 @@ export type PersonTreeUpdates = Partial<
 export function formatPersonName(person: TreePersonNode): string {
   const lastName = person.last_name === '-' ? '' : person.last_name;
   return [person.first_name, lastName].filter(Boolean).join(' ').trim();
+}
+
+export function countTreePeople(root: TreePersonNode | null): TreeMemberCounts {
+  const counts: TreeMemberCounts = { men: 0, women: 0, total: 0 };
+  const visited = new Set<string>();
+
+  const visit = (person: TreePersonNode | null) => {
+    if (!person || visited.has(person.id)) return;
+
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+
+    visit(person.spouse);
+    person.children.forEach(visit);
+  };
+
+  visit(root);
+  return counts;
 }
 
 export function flattenPersons(root: TreePersonNode): TreePersonNode[] {
@@ -53,6 +83,47 @@ export function findPersonInTree(
   }
 
   return null;
+}
+
+export function getFamilyChildrenForPerson(
+  root: TreePersonNode,
+  person: TreePersonNode,
+): TreePersonNode[] {
+  const parentIds = new Set([person.id]);
+
+  if (person.spouse?.id) {
+    parentIds.add(person.spouse.id);
+  }
+
+  const children = flattenPersons(root).filter((candidate) =>
+    candidate.parent_id ? parentIds.has(candidate.parent_id) : false,
+  );
+  const seen = new Set<string>();
+
+  return children.filter((child) => {
+    if (seen.has(child.id)) return false;
+    seen.add(child.id);
+    return true;
+  });
+}
+
+export function countFamilyDescendantsForPerson(
+  root: TreePersonNode,
+  person: TreePersonNode,
+): number {
+  const visited = new Set<string>();
+
+  const visit = (node: TreePersonNode): number => {
+    let count = 0;
+    for (const child of getFamilyChildrenForPerson(root, node)) {
+      if (visited.has(child.id)) continue;
+      visited.add(child.id);
+      count += 1 + visit(child);
+    }
+    return count;
+  };
+
+  return visit(person);
 }
 
 export function updatePersonInTree(

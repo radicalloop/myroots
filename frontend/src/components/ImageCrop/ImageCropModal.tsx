@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { ZoomIn, ZoomOut } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 import {
   computeCropArea,
   getCroppedImageFile,
   getRenderedImageSize,
   type CropPosition,
-} from '@/utils/image-crop.utils';
-import { normalizeProfileImageMimeType } from '@/utils/image-validation.utils';
+} from "@/utils/image-crop.utils";
+import { normalizeProfileImageMimeType } from "@/utils/image-validation.utils";
 
 interface ImageCropModalProps {
   open: boolean;
@@ -19,9 +20,20 @@ interface ImageCropModalProps {
   onSave: (file: File) => void;
 }
 
-const CROP_SIZE = 280;
+const DESKTOP_MAX_CROP_SIZE = 280;
+const MOBILE_MAX_CROP_SIZE = 208;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;
+
+function getResponsiveCropSize(): number {
+  if (typeof window === "undefined") return DESKTOP_MAX_CROP_SIZE;
+
+  const isMobile = window.innerWidth < 640;
+  const maxSize = isMobile ? MOBILE_MAX_CROP_SIZE : DESKTOP_MAX_CROP_SIZE;
+  const horizontalPadding = isMobile ? 56 : 48;
+
+  return Math.min(maxSize, window.innerWidth - horizontalPadding);
+}
 
 export function ImageCropModal({
   open,
@@ -32,6 +44,7 @@ export function ImageCropModal({
   onCancel,
   onSave,
 }: ImageCropModalProps) {
+  const [cropSize, setCropSize] = useState(DESKTOP_MAX_CROP_SIZE);
   const [zoom, setZoom] = useState(MIN_ZOOM);
   const [position, setPosition] = useState<CropPosition>({ x: 0, y: 0 });
   const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
@@ -52,22 +65,45 @@ export function ImageCropModal({
   useEffect(() => {
     if (!open) return;
 
+    const updateCropSize = () => {
+      setCropSize(getResponsiveCropSize());
+    };
+
+    updateCropSize();
+    window.addEventListener("resize", updateCropSize);
+    return () => window.removeEventListener("resize", updateCropSize);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
     setZoom(MIN_ZOOM);
     setPosition({ x: 0, y: 0 });
-  }, [open, imageSrc]);
+  }, [open, imageSrc, cropSize]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || saving) return;
+      if (event.key !== "Escape" || saving) return;
       event.stopPropagation();
       event.preventDefault();
       onCancel();
     };
 
-    window.addEventListener('keydown', handleKeyDown, true);
-    return () => window.removeEventListener('keydown', handleKeyDown, true);
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [open, onCancel, saving]);
 
   const clampPosition = useCallback(
@@ -77,19 +113,19 @@ export function ImageCropModal({
       const { width, height } = getRenderedImageSize(
         naturalSize.width,
         naturalSize.height,
-        CROP_SIZE,
+        cropSize,
         nextZoom,
       );
 
-      const maxX = Math.max(0, (width - CROP_SIZE) / 2);
-      const maxY = Math.max(0, (height - CROP_SIZE) / 2);
+      const maxX = Math.max(0, (width - cropSize) / 2);
+      const maxY = Math.max(0, (height - cropSize) / 2);
 
       return {
         x: Math.min(maxX, Math.max(-maxX, next.x)),
         y: Math.min(maxY, Math.max(-maxY, next.y)),
       };
     },
-    [naturalSize.height, naturalSize.width],
+    [cropSize, naturalSize.height, naturalSize.width],
   );
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -140,7 +176,7 @@ export function ImageCropModal({
     const cropArea = computeCropArea(
       naturalSize.width,
       naturalSize.height,
-      CROP_SIZE,
+      cropSize,
       zoom,
       position,
     );
@@ -162,14 +198,14 @@ export function ImageCropModal({
       ? getRenderedImageSize(
           naturalSize.width,
           naturalSize.height,
-          CROP_SIZE,
+          cropSize,
           zoom,
         )
-      : { width: CROP_SIZE, height: CROP_SIZE };
+      : { width: cropSize, height: cropSize };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-3 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="crop-modal-title"
@@ -181,24 +217,24 @@ export function ImageCropModal({
         onClick={saving ? undefined : onCancel}
       />
 
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-t-[var(--radius-card)] bg-white shadow-[var(--shadow-modal)] sm:rounded-[var(--radius-card)]">
-        <div className="border-b border-border-subtle px-6 py-5">
+      <div className="relative z-10 flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[18.5rem] flex-col overflow-hidden rounded-[var(--radius-card)] bg-white shadow-[var(--shadow-modal)] sm:max-h-[min(88vh,724px)] sm:max-w-md">
+        <div className="border-b border-border-subtle px-3 py-3 sm:px-6 sm:py-5">
           <h3
             id="crop-modal-title"
-            className="text-lg font-semibold tracking-tight text-text-primary"
+            className="text-base font-semibold tracking-tight text-text-primary sm:text-lg"
           >
             Adjust photo
           </h3>
-          <p className="mt-1 text-sm text-text-secondary">
+          <p className="mt-0.5 text-xs leading-relaxed text-text-secondary sm:mt-1 sm:text-sm">
             Drag to reposition and use the slider to zoom. Your photo will be
             saved as a circular avatar.
           </p>
         </div>
 
-        <div className="px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-6 sm:py-5">
           <div
-            className="relative mx-auto touch-none overflow-hidden rounded-full bg-warm-100 shadow-inner ring-4 ring-brand-100"
-            style={{ width: CROP_SIZE, height: CROP_SIZE }}
+            className="relative mx-auto touch-none overflow-hidden rounded-full bg-warm-100 shadow-inner ring-2 ring-brand-100 sm:ring-4"
+            style={{ width: cropSize, height: cropSize }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
@@ -229,15 +265,15 @@ export function ImageCropModal({
             />
           </div>
 
-          <div className="mt-5 flex items-center gap-3">
+          <div className="mt-3 flex items-center gap-2 sm:mt-5 sm:gap-3">
             <button
               type="button"
-              className="rounded-xl p-2 text-text-muted transition-colors hover:bg-warm-50 hover:text-text-secondary disabled:opacity-50"
+              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-warm-50 hover:text-text-secondary disabled:opacity-50 sm:rounded-xl sm:p-2"
               onClick={() => handleZoomChange(zoom - 0.1)}
               disabled={saving || zoom <= MIN_ZOOM}
               aria-label="Zoom out"
             >
-              <ZoomOut className="h-4 w-4" />
+              <ZoomOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
 
             <input
@@ -248,27 +284,28 @@ export function ImageCropModal({
               value={zoom}
               disabled={saving}
               onChange={(event) => handleZoomChange(Number(event.target.value))}
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-brand-100 accent-brand-600"
+              className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-brand-100 accent-brand-600 sm:h-1.5"
               aria-label="Zoom"
             />
 
             <button
               type="button"
-              className="rounded-xl p-2 text-text-muted transition-colors hover:bg-warm-50 hover:text-text-secondary disabled:opacity-50"
+              className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-warm-50 hover:text-text-secondary disabled:opacity-50 sm:rounded-xl sm:p-2"
               onClick={() => handleZoomChange(zoom + 0.1)}
               disabled={saving || zoom >= MAX_ZOOM}
               aria-label="Zoom in"
             >
-              <ZoomIn className="h-4 w-4" />
+              <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </button>
           </div>
         </div>
 
-        <div className="flex gap-2.5 border-t border-border-subtle bg-warm-50/50 px-6 py-4">
+        <div className="flex shrink-0 gap-2 border-t border-border-subtle bg-warm-50/50 px-3 py-3 sm:gap-2.5 sm:px-6 sm:py-4">
           <Button
             type="button"
             variant="secondary"
-            className="flex-1"
+            size="sm"
+            className="flex-1 sm:h-10 sm:px-4 sm:text-sm"
             disabled={saving}
             onClick={onCancel}
           >
@@ -276,7 +313,8 @@ export function ImageCropModal({
           </Button>
           <Button
             type="button"
-            className="flex-1"
+            size="sm"
+            className="flex-1 sm:h-10 sm:px-4 sm:text-sm"
             loading={saving}
             disabled={!naturalSize.width || !naturalSize.height}
             onClick={() => void handleSave()}
@@ -285,6 +323,7 @@ export function ImageCropModal({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,5 +1,5 @@
+import { DeletePersonModal } from "@/components/DeletePersonModal";
 import { PersonForm } from "@/components/PersonForm/PersonForm";
-import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import {
   PersonViewBody,
@@ -21,7 +21,9 @@ interface TreePageModalsProps {
   treeId: string;
   panelMode: TreePanelMode;
   activePerson: TreePersonNode | null;
+  activeFamilyChildren: TreePersonNode[];
   personPendingDelete: TreePersonNode | null;
+  pendingDeleteDescendantCount: number;
   canEdit: boolean;
   createLoading: boolean;
   addParentLoading: boolean;
@@ -52,7 +54,9 @@ export function TreePageModals({
   treeId,
   panelMode,
   activePerson,
+  activeFamilyChildren,
   personPendingDelete,
+  pendingDeleteDescendantCount,
   canEdit,
   createLoading,
   addParentLoading,
@@ -78,10 +82,6 @@ export function TreePageModals({
   onDeleteImage,
   onRequestDelete,
 }: TreePageModalsProps) {
-  const descendantCount = personPendingDelete
-    ? countDescendants(personPendingDelete)
-    : 0;
-
   return (
     <>
       <Modal
@@ -140,6 +140,7 @@ export function TreePageModals({
         {panelMode === "view" && activePerson && (
           <PersonViewBody
             person={activePerson}
+            familyChildren={activeFamilyChildren}
             canEdit={canEdit}
             onAddParent={onAddParent}
             onAddChild={onAddChild}
@@ -197,69 +198,13 @@ export function TreePageModals({
         )}
       </Modal>
 
-      <Modal
-        open={personPendingDelete !== null}
+      <DeletePersonModal
+        person={personPendingDelete}
+        descendantCount={pendingDeleteDescendantCount}
+        loading={deleteLoading}
         onClose={onCloseDelete}
-        title="Delete person?"
-        description={
-          personPendingDelete
-            ? `This will permanently delete ${personPendingDelete.first_name} ${personPendingDelete.last_name} and cannot be undone.`
-            : undefined
-        }
-        size="sm"
-        footer={
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <Button
-              variant="secondary"
-              onClick={onCloseDelete}
-              disabled={deleteLoading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onConfirmDelete("person")}
-              loading={deleteLoading}
-            >
-              Delete only this person
-            </Button>
-            {descendantCount > 0 && (
-              <Button
-                variant="danger"
-                onClick={() => onConfirmDelete("branch")}
-                loading={deleteLoading}
-              >
-                Delete with children
-              </Button>
-            )}
-          </div>
-        }
-      >
-        <p className="text-sm text-text-secondary">
-          Choose how to handle this person's children.
-          {descendantCount > 0
-            ? ` ${descendantCount} child/descendant record${
-                descendantCount === 1 ? "" : "s"
-              } can either be kept in the tree or deleted with this person.`
-            : " This person has no children in the tree."}
-        </p>
-      </Modal>
+        onConfirm={onConfirmDelete}
+      />
     </>
   );
-}
-
-function countDescendants(person: TreePersonNode): number {
-  const visited = new Set<string>();
-
-  const visit = (node: TreePersonNode): number => {
-    let count = 0;
-    for (const child of node.children) {
-      if (visited.has(child.id)) continue;
-      visited.add(child.id);
-      count += 1 + visit(child);
-    }
-    return count;
-  };
-
-  return visit(person);
 }

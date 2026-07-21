@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Person } from '../../entities/Person';
+import { PersonSpouse } from '../../entities/PersonSpouse';
+import { User } from '../../entities/User';
 import { TreesModule } from '../trees/trees.module';
 import { PersonsModule } from '../persons/persons.module';
 import { StorageModule } from '../storage/storage.module';
@@ -13,7 +15,7 @@ import { ChatImageCleanupTask } from './tasks/chat-image-cleanup.task';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Person]),
+    TypeOrmModule.forFeature([Person, PersonSpouse, User]),
     TreesModule,
     PersonsModule,
     StorageModule,

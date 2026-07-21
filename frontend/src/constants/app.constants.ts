@@ -2,6 +2,7 @@ export const ROUTES = {
   LOGIN: '/login',
   SIGNUP: '/signup',
   DASHBOARD: '/dashboard',
+  PROFILE: '/profile',
   TREE: (treeId: string) => `/tree/${treeId}`,
   PUBLIC_TREE: (treeId: string) => `/public/tree/${treeId}`,
   ACCEPT_SHARE: (token: string) => `/accept-share/${token}`,
@@ -22,4 +23,5 @@ export const QUERY_KEYS = {
 
 export const STORAGE_KEYS = {
   ACCESS_TOKEN: 'family_tree_access_token',
+  PUBLIC_AUTH_PROMPT_DISMISSED_AT: 'myroots_public_auth_prompt_dismissed_at',
 } as const;

@@ -4,6 +4,7 @@ export interface ImportSchemaNode {
   id: string;
   name: string;
   gender?: string;
+  spouse?: ImportSchemaNode;
   parents?: ImportSchemaNode[];
   children?: ImportSchemaChildNode[];
 }
@@ -32,6 +33,7 @@ export interface ImportPersonRecord {
   lastName: string;
   gender: Gender;
   parentExternalId: string | null;
+  spouseOfExternalId?: string | null;
   isRoot: boolean;
 }
 

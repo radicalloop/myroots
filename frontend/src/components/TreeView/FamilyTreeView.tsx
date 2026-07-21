@@ -19,7 +19,9 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { TreePine } from "lucide-react";
+import { MemberStatsBar } from "@/components/MemberStatsBar";
 import { TreePersonNode } from "@/types/api.types";
+import { countTreePeople } from "@/utils/tree.utils";
 import { downloadTreeAsPdf } from "@/utils/download-tree-pdf";
 import { useTreePublicContext } from "@/contexts/TreePublicContext";
 import { treeToFlowElements, PersonNodeData } from "./layoutTree";
@@ -35,6 +37,25 @@ import {
   ChatFocusNodeEventDetail,
 } from "@/utils/chat-focus-events";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { useMatch } from "react-router-dom";
+import clsx from "clsx";
+
+function TreePeopleCount({ counts }: { counts: ReturnType<typeof countTreePeople> }) {
+  if (counts.total === 0) return null;
+  const isPublicTree = !!useMatch({ path: "/public/tree/:id" });
+
+  return (
+    <MemberStatsBar
+      counts={counts}
+      className={clsx(
+        "absolute left-3 z-10 md:left-4 md:top-4",
+        isPublicTree
+          ? "top-3 max-w-[calc(100%-1.5rem)]"
+          : "top-[74px] max-md:hidden",
+      )}
+    />
+  );
+}
 
 const nodeTypes = {
   personNode: PersonFlowNode,
@@ -54,6 +75,11 @@ interface FamilyTreeViewProps {
   onNodeClick: (person: TreePersonNode) => void;
   immersive?: boolean;
   centerOnInitialLoad?: boolean;
+  emptyStateAction?: {
+    label: string;
+    onClick: () => void;
+    className?: string;
+  };
 }
 
 interface TreeFlowProps {
@@ -86,6 +112,7 @@ function TreeFlow({
     () => treeToFlowElements(root),
     [root],
   );
+  const counts = useMemo(() => countTreePeople(root), [root]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layoutNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layoutEdges);
@@ -227,10 +254,11 @@ function TreeFlow({
     <div
       className={
         immersive
-          ? "h-full w-full overflow-hidden rounded-[22px] border border-border-soft bg-white shadow-[0_1px_2px_rgba(31,41,35,0.04)]"
-          : "h-full w-full overflow-hidden rounded-[var(--radius-card)] border border-border-soft bg-gradient-to-br from-warm-50 via-white to-brand-50/30 shadow-[var(--shadow-card)]"
+          ? "relative h-full w-full overflow-hidden rounded-[22px] border border-border-soft bg-white shadow-[0_1px_2px_rgba(31,41,35,0.04)]"
+          : "relative h-full w-full overflow-hidden rounded-[var(--radius-card)] border border-border-soft bg-gradient-to-br from-warm-50 via-white to-brand-50/30 shadow-[var(--shadow-card)]"
       }
     >
+      <TreePeopleCount counts={counts} />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -270,12 +298,16 @@ function TreeFlow({
 export const FamilyTreeView = forwardRef<
   FamilyTreeViewHandle,
   FamilyTreeViewProps
->(function FamilyTreeView({
-  root,
-  onNodeClick,
-  immersive = false,
-  centerOnInitialLoad = false,
-}, ref) {
+>(function FamilyTreeView(
+  {
+    root,
+    onNodeClick,
+    immersive = false,
+    centerOnInitialLoad = false,
+    emptyStateAction,
+  },
+  ref,
+) {
   if (!root) {
     return (
       <div
@@ -289,6 +321,7 @@ export const FamilyTreeView = forwardRef<
           icon={<TreePine className="h-8 w-8" />}
           title="Start your family tree"
           description="Add the first person to begin mapping your family heritage and building connections across generations."
+          action={emptyStateAction}
         />
       </div>
     );

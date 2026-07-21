@@ -1,4 +1,5 @@
 import { Person } from '../../../entities/Person';
+import { PersonSpouse } from '../../../entities/PersonSpouse';
 import { ApiError } from '../../../utils/ApiError';
 import {
   duplicatePersonMessage,
@@ -26,7 +27,7 @@ export interface AiPersonFields {
   spouse_name?: string;
 }
 
-type NameResolution =
+export type NameResolution =
   | { kind: 'found'; person: Person }
   | { kind: 'not_found' }
   | { kind: 'ambiguous'; matches: Person[] };
@@ -222,14 +223,36 @@ export function extractJsonFromAiResponse(raw: string): unknown | null {
   }
 
   // Strategy 3: Balanced brace matching — find the first '{' and its
-  // matching '}', ignoring text before and after. This correctly handles
-  // nested objects (unlike lastIndexOf('}')).
+  // matching '}', ignoring text before and after. Track strings so braces
+  // inside reply text do not prematurely end the object.
   const objStart = trimmed.indexOf('{');
   if (objStart !== -1) {
     let depth = 0;
+    let inString = false;
+    let escaped = false;
+
     for (let i = objStart; i < trimmed.length; i++) {
-      if (trimmed[i] === '{') depth++;
-      if (trimmed[i] === '}') {
+      const char = trimmed[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === '\\' && inString) {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"') {
+        inString = !inString;
+        continue;
+      }
+
+      if (inString) continue;
+
+      if (char === '{') depth++;
+      if (char === '}') {
         depth--;
         if (depth === 0) {
           try {
@@ -245,8 +268,27 @@ export function extractJsonFromAiResponse(raw: string): unknown | null {
   return null;
 }
 
-export function toPersonSummaries(persons: Person[]) {
+export function toPersonSummaries(
+  persons: Person[],
+  spouseRows: PersonSpouse[] = [],
+) {
   const byId = new Map(persons.map((person) => [person.id, person]));
+  const spouseNamesByPersonId = new Map<string, string[]>();
+
+  for (const row of spouseRows) {
+    const person = byId.get(row.personId);
+    const spouse = byId.get(row.spouseId);
+    if (!person || !spouse) continue;
+
+    spouseNamesByPersonId.set(row.personId, [
+      ...(spouseNamesByPersonId.get(row.personId) ?? []),
+      formatPersonName(spouse),
+    ]);
+    spouseNamesByPersonId.set(row.spouseId, [
+      ...(spouseNamesByPersonId.get(row.spouseId) ?? []),
+      formatPersonName(person),
+    ]);
+  }
 
   return persons.map((person) => {
     const parent = person.parentId ? byId.get(person.parentId) : null;
@@ -262,6 +304,7 @@ export function toPersonSummaries(persons: Person[]) {
       health_note: person.healthNote,
       is_root: person.isRoot,
       parent_name: parent ? formatPersonName(parent) : null,
+      spouse_names: spouseNamesByPersonId.get(person.id) ?? [],
       children_names: persons
         .filter((p) => p.parentId === person.id)
         .map((p) => formatPersonName(p)),

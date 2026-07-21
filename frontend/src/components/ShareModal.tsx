@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Check, Copy, Link2, MessageCircle, Share2, Trash2 } from "lucide-react";
+import { Check, Link2, MessageCircle, Share2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,7 @@ import {
 import { ROUTES } from "@/constants/app.constants";
 import { TreePersonNode } from "@/types/api.types";
 import { shareTreeSnapshot } from "@/utils/share-tree-snapshot";
+import { SharePermissionSelect } from "@/components/SharePermissionSelect";
 
 interface ShareModalProps {
   treeId: string;
@@ -27,9 +28,9 @@ interface ShareModalProps {
 
 const urlBase = window.location.origin;
 
-function getShareUrl(token: string): string {
-  return `${urlBase}/accept-share/${token}`;
-}
+// function getShareUrl(token: string): string {
+//   return `${urlBase}/accept-share/${token}`;
+// }
 
 function getPublicTreeUrl(treeId: string): string {
   return `${urlBase}${ROUTES.PUBLIC_TREE(treeId)}`;
@@ -62,7 +63,9 @@ export function ShareModal({
   open,
   onClose,
 }: ShareModalProps) {
-  const { data: shares, isLoading } = useTreeShares(treeId);
+  const { data: shares, isLoading } = useTreeShares(treeId, {
+    enabled: open && isOwner,
+  });
   const { data: treeView, isLoading: isTreeLoading } = useTreeView(treeId, {
     enabled: open && isOwner,
   });
@@ -71,9 +74,7 @@ export function ShareModal({
   const deleteShare = useDeleteTreeShare(treeId);
   const [email, setEmail] = useState("");
   const [permission, setPermission] = useState<"VIEW" | "EDIT">("VIEW");
-  const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [publicLinkCopied, setPublicLinkCopied] = useState(false);
-  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
   const publicTreeUrl = useMemo(() => getPublicTreeUrl(treeId), [treeId]);
   const relativesCount = useMemo(
     () => countRelatives(treeView?.root),
@@ -88,12 +89,6 @@ export function ShareModal({
     );
   };
 
-  const handleCopyLink = (token: string) => {
-    void navigator.clipboard.writeText(getShareUrl(token));
-    setCopiedToken(token);
-    setTimeout(() => setCopiedToken(null), 2000);
-  };
-
   const handleCopyPublicLink = async () => {
     try {
       await navigator.clipboard.writeText(publicTreeUrl);
@@ -106,10 +101,9 @@ export function ShareModal({
   };
 
   const handleShareSnapshot = async () => {
-    if (!treeView && isTreeLoading) return;
+    if (!treeView) return;
 
     try {
-      setIsSharingSnapshot(true);
       const mode = await shareTreeSnapshot({
         treeName,
         relativesCount,
@@ -124,8 +118,6 @@ export function ShareModal({
       toast.error(
         error instanceof Error ? error.message : "Could not share snapshot",
       );
-    } finally {
-      setIsSharingSnapshot(false);
     }
   };
 
@@ -158,7 +150,10 @@ export function ShareModal({
                   onClick={handleCopyPublicLink}
                 >
                   {publicLinkCopied ? (
-                    <Check className="h-4 w-4 text-green-600" aria-hidden="true" />
+                    <Check
+                      className="h-4 w-4 text-green-600"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <Link2 className="h-4 w-4" aria-hidden="true" />
                   )}
@@ -172,7 +167,7 @@ export function ShareModal({
                   size="sm"
                   className="min-w-0 justify-center gap-2 whitespace-nowrap px-3"
                   onClick={handleShareSnapshot}
-                  loading={isSharingSnapshot || isTreeLoading}
+                  disabled={isTreeLoading || !treeView}
                 >
                   <MessageCircle className="h-4 w-4" aria-hidden="true" />
                   <span className="truncate">WhatsApp</span>
@@ -225,91 +220,70 @@ export function ShareModal({
                 Send invite
               </Button>
               <p className="text-xs leading-relaxed text-text-muted">
-                The tree appears in their dashboard only after they accept the email invite.
+                The tree appears in their dashboard only after they accept the
+                email invite.
               </p>
             </div>
           </div>
         )}
 
-        <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
-            Shared with
-          </h4>
-          {isLoading && (
-            <p className="text-sm text-text-secondary">Loading...</p>
-          )}
-          {!isLoading && (!shares || shares.length === 0) && (
-            <p className="text-sm text-text-secondary">No shares yet</p>
-          )}
-          {shares?.map((share) => (
-            <div
-              key={share.id}
-              className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted md:px-3"
-            >
-              <div className="min-w-0 flex-1 overflow-hidden">
-                <Tooltip content={share.sharedWithEmail} mobileOnly>
-                  <p className="text-sm font-medium text-text-primary max-sm:truncate">
-                    {share.sharedWithEmail}
-                  </p>
-                </Tooltip>
-                <div className="mt-1 flex items-center gap-1.5">
-                  <Badge variant={statusVariant(share.status)}>
-                    {share.status}
-                  </Badge>
-                  <span className="text-xs text-text-muted">
-                    {share.permission === "EDIT" ? "Editor" : "Viewer"}
-                  </span>
+        {isOwner && (
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+              Shared with
+            </h4>
+            {isLoading && (
+              <p className="text-sm text-text-secondary">Loading...</p>
+            )}
+            {!isLoading && (!shares || shares.length === 0) && (
+              <p className="text-sm text-text-secondary">No shares yet</p>
+            )}
+            {shares?.map((share) => (
+              <div
+                key={share.id}
+                className="flex min-w-0 items-center gap-2 rounded-lg py-2.5 hover:bg-bg-muted"
+              >
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <Tooltip content={share.sharedWithEmail} mobileOnly>
+                    <p className="text-sm font-medium text-text-primary max-sm:truncate">
+                      {share.sharedWithEmail}
+                    </p>
+                  </Tooltip>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Badge variant={statusVariant(share.status)}>
+                      {share.status}
+                    </Badge>
+                    <span className="text-xs text-text-muted">
+                      {share.permission === "EDIT" ? "Editor" : "Viewer"}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1">
-                {share.status === "PENDING" && (
+                <div className="flex shrink-0 items-center gap-1">
+                  <SharePermissionSelect
+                    value={share.permission}
+                    onChange={(permission) =>
+                      updateShare.mutate({
+                        shareId: share.id,
+                        data: { permission },
+                      })
+                    }
+                    disabled={updateShare.isPending}
+                  />
                   <Button
                     variant="secondary"
                     size="sm"
-                    aria-label="Copy share link"
-                    onClick={() => handleCopyLink(share.token)}
-                    className="px-2"
+                    aria-label="Remove share"
+                    onClick={() => deleteShare.mutate(share.id)}
+                    loading={deleteShare.isPending}
+                    className="px-2 text-red-500 hover:bg-red-50"
                   >
-                    {copiedToken === share.token ? (
-                      <Check className="h-3.5 w-3.5 text-green-600" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
-                )}
-                {isOwner && (
-                  <>
-                    <select
-                      value={share.permission}
-                      onChange={(e) =>
-                        updateShare.mutate({
-                          shareId: share.id,
-                          data: {
-                            permission: e.target.value as "VIEW" | "EDIT",
-                          },
-                        })
-                      }
-                      className="h-8 rounded-md border border-border-soft bg-bg-elevated px-2 text-xs text-text-primary"
-                    >
-                      <option value="VIEW">View</option>
-                      <option value="EDIT">Edit</option>
-                    </select>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      aria-label="Remove share"
-                      onClick={() => deleteShare.mutate(share.id)}
-                      loading={deleteShare.isPending}
-                      className="px-2 text-red-500 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </>
-                )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </Modal>
   );

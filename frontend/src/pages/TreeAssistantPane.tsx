@@ -7,6 +7,7 @@ interface TreeAssistantPaneProps {
   messages: ChatMessage[];
   isSending: boolean;
   treeName: string;
+  currentUserName?: string;
   onSend: (message: string, image?: ChatImagePayload) => void;
   onOpen: () => void;
   onClose: () => void;
@@ -17,6 +18,7 @@ export function TreeAssistantPane({
   messages,
   isSending,
   treeName,
+  currentUserName,
   onSend,
   onOpen,
   onClose,
@@ -36,6 +38,7 @@ export function TreeAssistantPane({
               isSending={isSending}
               onSend={onSend}
               treeName={treeName}
+              currentUserName={currentUserName}
               onClose={onClose}
             />
           </div>
@@ -83,12 +86,13 @@ export function TreeAssistantPane({
             aria-label="Close assistant"
             onClick={onClose}
           />
-          <div className="relative h-[78dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
+          <div className="relative h-[90dvh] overflow-hidden rounded-t-3xl bg-white shadow-2xl">
             <TreeAssistant
               messages={messages}
               isSending={isSending}
               onSend={onSend}
               treeName={treeName}
+              currentUserName={currentUserName}
               onClose={onClose}
             />
           </div>

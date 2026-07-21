@@ -1,6 +1,7 @@
 import { Person } from '../../../entities/Person';
 import { PersonSpouse } from '../../../entities/PersonSpouse';
 import { Tree } from '../../../entities/Tree';
+import { Gender } from '../../../types/common.types';
 import { Logger } from '@nestjs/common';
 
 const logger = new Logger('PersonMapper');
@@ -35,13 +36,20 @@ export interface TreeResponse {
   user_id: string;
   name: string;
   description: string | null;
+  counts?: {
+    men: number;
+    women: number;
+    total: number;
+  };
   role?: 'OWNER' | 'VIEW' | 'EDIT';
   created_at: Date;
   updated_at: Date;
 }
 
 export interface TreeViewResponse {
-  tree: Pick<TreeResponse, 'id' | 'name'> & { role?: 'OWNER' | 'VIEW' | 'EDIT' };
+  tree: Pick<TreeResponse, 'id' | 'name' | 'description'> & {
+    role?: 'OWNER' | 'VIEW' | 'EDIT';
+  };
   root: TreePersonNode | null;
 }
 
@@ -74,6 +82,18 @@ export function mapTreeToResponse(tree: Tree): TreeResponse {
     description: tree.description,
     created_at: tree.createdAt,
     updated_at: tree.updatedAt,
+  };
+}
+
+export function mapTreeToViewSummary(
+  tree: Tree,
+  role?: 'OWNER' | 'VIEW' | 'EDIT',
+): TreeViewResponse['tree'] {
+  return {
+    id: tree.id,
+    name: tree.name,
+    description: tree.description,
+    ...(role ? { role } : {}),
   };
 }
 
@@ -131,69 +151,58 @@ export function buildPersonTree(
     (p) => p.parentId === parentId && !visited.has(p.id),
   );
 
-  return matching.map((person) => {
-    if (visited.has(person.id)) {
-      logger.warn(
-        `Cycle detected: person ${person.id} already visited — skipping subtree`,
-      );
-      return {
-        ...mapPersonToResponse(person),
-        spouse: null,
-        children: [],
-      };
-    }
+  return matching.map((person) =>
+    buildPersonTreeNode(person, persons, spousesMap, visited),
+  );
+}
 
-    visited.add(person.id);
+export function buildPersonChildren(
+  person: Person,
+  persons: Person[],
+  spousesMap: Map<string, PersonResponse>,
+  visited: Set<string>,
+): TreePersonNode[] {
+  const childParentIds = new Set<string>([person.id]);
+  const spouseResponse = spousesMap.get(person.id);
 
-    const spouseResponse = spousesMap.get(person.id) ?? null;
+  if (spouseResponse) {
+    childParentIds.add(spouseResponse.id);
+  }
 
-    // Collect children: own children + spouse's children (merged under canonical parent).
-    // The canonical parent is the one we're currently building (this person).
-    // Children whose parent_id points to the spouse are also included here.
-    const ownChildIds = new Set(
-      persons
-        .filter((p) => p.parentId === person.id)
-        .map((p) => p.id),
+  return persons
+    .filter(
+      (candidate) =>
+        Boolean(candidate.parentId) &&
+        childParentIds.has(candidate.parentId!) &&
+        !visited.has(candidate.id),
+    )
+    .map((child) => buildPersonTreeNode(child, persons, spousesMap, visited));
+}
+
+function buildPersonTreeNode(
+  person: Person,
+  persons: Person[],
+  spousesMap: Map<string, PersonResponse>,
+  visited: Set<string>,
+): TreePersonNode {
+  if (visited.has(person.id)) {
+    logger.warn(
+      `Cycle detected: person ${person.id} already visited — skipping subtree`,
     );
-
-    const spouseChildren = spouseResponse
-      ? persons.filter(
-          (p) => p.parentId === spouseResponse.id && !ownChildIds.has(p.id),
-        )
-      : [];
-
-    // Build subtree for own children
-    const children = buildPersonTree(persons, person.id, spousesMap, visited);
-
-    // Build subtree for spouse's children (merged under this person)
-    for (const spouseChild of spouseChildren) {
-      if (visited.has(spouseChild.id)) {
-        logger.warn(
-          `Cycle detected via spouse: child ${spouseChild.id} already visited — skipping`,
-        );
-        continue;
-      }
-
-      const subtree = buildPersonTree(
-        persons,
-        spouseChild.parentId,
-        spousesMap,
-        visited,
-      );
-      // Attach spouse's child subtrees under this person
-      if (subtree.length > 0) {
-        children.push(subtree[0]); // spouse's child as root of its subtree
-      }
-    }
-
-    const spouseNode = buildSpouseNode(person.id, persons, spousesMap);
-
     return {
       ...mapPersonToResponse(person),
-      spouse: spouseNode,
-      children,
+      spouse: null,
+      children: [],
     };
-  });
+  }
+
+  visited.add(person.id);
+
+  return {
+    ...mapPersonToResponse(person),
+    spouse: buildSpouseNode(person.id, persons, spousesMap),
+    children: buildPersonChildren(person, persons, spousesMap, visited),
+  };
 }
 
 /**
@@ -229,4 +238,64 @@ export function buildSpouseNode(
 
 export function findRootPerson(persons: Person[]): Person | undefined {
   return persons.find((p) => p.isRoot);
+}
+
+export function countVisibleTreePeople(
+  persons: Person[],
+  spouseRows: PersonSpouse[],
+): { men: number; women: number; total: number } {
+  const counts = { men: 0, women: 0, total: 0 };
+  const rootPerson = findRootPerson(persons);
+  if (!rootPerson) return counts;
+
+  const personById = new Map(persons.map((person) => [person.id, person]));
+  const spouseByPersonId = new Map<string, string>();
+  const visited = new Set<string>();
+
+  for (const row of spouseRows) {
+    if (personById.has(row.personId) && personById.has(row.spouseId)) {
+      spouseByPersonId.set(row.personId, row.spouseId);
+      spouseByPersonId.set(row.spouseId, row.personId);
+    }
+  }
+
+  const countPerson = (person: Person): void => {
+    if (visited.has(person.id)) return;
+    visited.add(person.id);
+    counts.total += 1;
+
+    if (person.gender === Gender.MALE) {
+      counts.men += 1;
+    } else if (person.gender === Gender.FEMALE) {
+      counts.women += 1;
+    }
+  };
+
+  const visitFamily = (person: Person): void => {
+    if (visited.has(person.id)) return;
+
+    countPerson(person);
+
+    const spouseId = spouseByPersonId.get(person.id);
+    const spouse = spouseId ? personById.get(spouseId) : null;
+    if (spouse) {
+      countPerson(spouse);
+    }
+
+    const childParentIds = new Set<string>([person.id]);
+    if (spouseId) childParentIds.add(spouseId);
+
+    for (const child of persons) {
+      if (
+        child.parentId &&
+        childParentIds.has(child.parentId) &&
+        !visited.has(child.id)
+      ) {
+        visitFamily(child);
+      }
+    }
+  };
+
+  visitFamily(rootPerson);
+  return counts;
 }

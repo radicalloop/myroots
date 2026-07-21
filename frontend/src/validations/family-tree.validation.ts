@@ -24,8 +24,15 @@ const passwordRules = z
   .regex(/[0-9]/, 'Must contain at least one number');
 
 export const signupSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').max(100),
+  lastName: z.string().trim().min(1, 'Last name is required').max(100),
   email: z.string().email('Invalid email address'),
   password: passwordRules,
+});
+
+export const profileSchema = z.object({
+  firstName: z.string().trim().min(1, 'First name is required').max(100),
+  lastName: z.string().trim().min(1, 'Last name is required').max(100),
 });
 
 export const treeSchema = z.object({
@@ -46,5 +53,6 @@ export const personSchema = z.object({
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 export type SignupFormValues = z.infer<typeof signupSchema>;
+export type ProfileFormValues = z.infer<typeof profileSchema>;
 export type TreeFormValues = z.infer<typeof treeSchema>;
 export type PersonFormValues = z.infer<typeof personSchema>;

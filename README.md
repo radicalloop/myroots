@@ -21,7 +21,7 @@ Create interactive trees, add relatives with parent and spouse relationships, up
 
 https://github.com/radicalloop/myroots/raw/master/MyRoots-Product-Demo-final.mp4
 
-<video src="https://github.com/radicalloop/myroots/raw/master/MyRoots-Product-Demo-final.mp4" controls width="720">
+<video src="https://raw.githubusercontent.com/radicalloop/myroots/master/MyRoots-Product-Demo-final.mp4" controls width="720"></video>
   <a href="https://github.com/radicalloop/myroots/blob/master/MyRoots-Product-Demo-final.mp4">Watch the demo video</a>
 </video>
 

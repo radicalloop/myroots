@@ -1,15 +1,26 @@
-# MyRoots
+<h1 align="center">MyRoots</h1>
 
-**Describe your family. Watch AI build your tree.**
+<p align="center"><strong>Describe your family. Watch AI build your tree.</strong></p>
 
-A family tree platform you can try online or host yourself — create interactive trees, share them with relatives, and explore your history with an AI assistant.
+<p align="center">A family tree platform you can try online or host yourself — create interactive trees, share them with relatives, and explore your history with an AI assistant.</p>
+
+<p align="center">
+  <a href="https://myroots.radicalloop.com"><img src="https://img.shields.io/badge/Live_Demo-myroots.radicalloop.com-2ea44f?style=flat-square" alt="Live Demo" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Node.js-24-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js 24" />
+  <img src="https://img.shields.io/badge/NestJS-10-E0234E?style=flat-square&logo=nestjs&logoColor=white" alt="NestJS 10" />
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black" alt="React 19" />
+  <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.8" />
+  <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker Ready" />
+</p>
 
 <p align="center">
   <img src="docs/screenshot-hero.jpg" alt="MyRoots — The AI-powered family historian" width="720" />
 </p>
 
-**Try it online:** [https://myroots.radicalloop.com](https://myroots.radicalloop.com)  
-**Want full control of your data?** Self-host with Docker (recommended path below).
+<p align="center">
+  <strong>Try it online:</strong> <a href="https://myroots.radicalloop.com">myroots.radicalloop.com</a>&nbsp;&nbsp;·&nbsp;&nbsp;<strong>Want full control?</strong> Self-host with Docker (below).
+</p>
 
 ---
 
@@ -27,7 +38,9 @@ A family tree platform you can try online or host yourself — create interactiv
   <em>Search anyone in your tree, export PDF, share with family</em>
 </p>
 
-[Watch the full product demo (~52s)](./MyRoots-Product-Demo-final.mp4)
+<p align="center">
+  <a href="./MyRoots-Product-Demo-final.mp4">▶ Watch the full product demo (~52s)</a>
+</p>
 
 ---
 

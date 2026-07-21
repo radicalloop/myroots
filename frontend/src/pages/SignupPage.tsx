@@ -65,7 +65,7 @@ export function SignupPage() {
         </div>
 
         <Card className="w-full max-w-md animate-slide-up p-8" padding="none">
-          <div className="md:p-8">
+          <div>
             <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
               Create account
             </h1>
@@ -81,7 +81,7 @@ export function SignupPage() {
                 <Input
                   label="First name"
                   type="text"
-                  placeholder="Jimit"
+                  placeholder="First name"
                   autoComplete="given-name"
                   {...register("firstName")}
                   error={errors.firstName?.message}
@@ -89,7 +89,7 @@ export function SignupPage() {
                 <Input
                   label="Last name"
                   type="text"
-                  placeholder="Shah"
+                  placeholder="Last name"
                   autoComplete="family-name"
                   {...register("lastName")}
                   error={errors.lastName?.message}
